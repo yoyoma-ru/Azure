@@ -17,8 +17,3 @@ env/
 # IDE
 .vscode/
 .idea/
-
-# Azure Functions ローカル
-local.settings.json
-bin/
-obj/
