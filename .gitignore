@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# 環境変数
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
