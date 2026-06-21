@@ -95,41 +95,66 @@ flowchart TD
 > 全社規則（Global）→ 部門規則（Product）→ チーム規則（API）→ 個人の取り決め（Operation）。
 > 内側ほど具体的・例外的。
 
+> **補足：正確には 5 スコープ**
+> 公式では Global と Product の間に **Workspace**（チーム単位の分権管理）があり、`Global → Workspace → Product → API → Operation` の 5 階層。Workspace は大組織向けの機能なので本書では Week 9 で扱う。当面は上の 4 つで考えてよい。
+
 ---
 
-## 3. 評価順序（ここが最重要）
+## 3. 評価順序は `<base/>` で決まる（ここが最重要）
 
-スコープが入れ子なので、ポリシーは**外→内→（バックエンド）→内→外**の順で実行される。
+> ⚠️ **よくある誤解**：「スコープが入れ子だから外→内→内→外で自動的に決まる」「outbound は inbound の逆順になる」── **どちらも不正確**。
+> 公式ドキュメント：
+> > "determine the policy evaluation order **by placement of the `base` element** in each section"
+> > （評価順序は各セクションの `base` 要素の**置き場所で決まる**）
+
+### 仕組み：テンプレート展開
+実効ポリシー（effective policy）は、最も内側の **Operation から始めて、`<base/>` を親スコープの内容で置き換えていく**ことで作られる。`<base/>` =「このセクションの親スコープのポリシーをここに差し込む」。
+
+### 既定（`<base/>` を各セクションの先頭に置く＝推奨）
+このとき inbound・outbound・on-error すべてが、次の順で実行される：
 
 ```mermaid
 flowchart LR
-    subgraph REQ["inbound（行き：外→内）"]
-        GI["Global"]
-        PI["Product"]
-        AI["API"]
-        OI["Operation"]
-    end
-    BK["バックエンド"]
-    subgraph RES["outbound（帰り：内→外）"]
-        OO["Operation"]
-        AO["API"]
-        PO["Product"]
-        GO["Global"]
-    end
+    G["Global"]
+    P["Product"]
+    A["API"]
+    O["Operation"]
 
-    GI --> PI --> AI --> OI --> BK
-    BK --> OO --> AO --> PO --> GO
+    G -->|"base 先頭なら"| P
+    P -->|"base 先頭なら"| A
+    A -->|"base 先頭なら"| O
 ```
 
-- **inbound**：Global → Product → API → Operation（**外側から内側へ**）
-- バックエンドへ転送
-- **outbound**：Operation → API → Product → Global（**内側から外側へ＝逆順**）
+```
+effective な inbound（base 先頭の場合）       effective な outbound（base 先頭の場合）
+  [Global の inbound]                           [Global の outbound]
+  [Product の inbound]                          [Product の outbound]
+  [API の inbound]                              [API の outbound]
+  [Operation の inbound]                        [Operation の outbound]
+  → 上から順に実行：Global→Operation            → 上から順に実行：Global→Operation
+```
 
-> **イメージ**：玉ねぎ／封筒の入れ子。
-> 行き（inbound）は外の皮から順にむいて中へ。帰り（outbound）は中から順に包み直して外へ。
-> だから outbound は inbound と逆順になる。
+> **重要**：outbound も「base 先頭」なら inbound と**同じ Global→Operation 順**。
+> **自動で逆順にはならない。** 逆順（Operation→Global）にしたいなら、outbound の `<base/>` を**末尾**に置く。
 
-なぜ逆順か：inbound で「外側が先に加工 → 内側が仕上げ」たなら、outbound では「内側が先に片付け → 外側が最後に締める」のが対称的で自然だから。
+### `<base/>` を動かすと順序が変わる（自分で制御する）
+
+| `<base/>` の位置 | 実行順 |
+|---|---|
+| セクションの**先頭** | 親（外側）→ 自分（内側） |
+| セクションの**末尾** | 自分（内側）→ 親（外側） |
+
+公式の例（API スコープの inbound、base が中間）：
+```xml
+<inbound>
+  <cross-domain />     <!-- ① API 自身：base より前なので最初 -->
+  <base />             <!-- ② 親（Global/Product）の inbound がここで走る -->
+  <find-and-replace from="xyz" to="abc" />  <!-- ③ API 自身：base より後 -->
+</inbound>
+```
+→ 実行順：cross-domain → 親スコープの inbound → find-and-replace
+
+> 💡 Portal の **「Calculate effective policy」** で、展開後の実効ポリシー（実際の実行順）を確認できる。迷ったら必ずこれで答え合わせする。
 
 ---
 
@@ -198,13 +223,13 @@ flowchart LR
 ## 6. 全体整理
 
 ### パイプライン × スコープのマトリクス
-1 リクエストは「4 セクション × 4 スコープ」の格子を通る、とイメージするとよい。
+1 リクエストは「4 セクション × スコープ」の格子を通る、とイメージするとよい。各セクション内の実行順は `<base/>` の位置で決まる（既定＝先頭なら Global→Operation）。
 
 ```mermaid
 flowchart LR
-    IN["inbound<br/>Global→Product→API→Operation"]
+    IN["inbound<br/>base先頭なら Global→Operation"]
     BK["backend<br/>転送"]
-    OUT["outbound<br/>Operation→API→Product→Global"]
+    OUT["outbound<br/>base先頭なら Global→Operation"]
 
     IN --> BK --> OUT
 ```
@@ -218,9 +243,10 @@ flowchart LR
 | backend | 転送そのもの。リトライ・差し替え |
 | outbound | 応答受信〜返却前。レスポンス加工・キャッシュ格納 |
 | on-error | 例外時に飛ぶ処理（try-catch の catch 的） |
-| スコープ | Global / Product / API / Operation の 4 階層 |
-| 評価順序 | inbound は外→内、outbound は内→外（逆順） |
-| `<base/>` | 親スコープのポリシーをここで実行する差し込み口 |
+| スコープ | Global / (Workspace) / Product / API / Operation の階層 |
+| 評価順序 | `<base/>` の位置で決まる。既定（base 先頭）なら inbound も outbound も Global→Operation。自動反転はしない |
+| `<base/>` | 親スコープのポリシーをここで実行する差し込み口。先頭=親が先、末尾=自分が先 |
+| Calculate effective policy | Portal で展開後の実効ポリシー（実際の実行順）を確認する機能 |
 
 ---
 
@@ -252,8 +278,8 @@ flowchart LR
 2. **`<base/>` を削除すると何が起きるか？**
    - キーワード：親スコープのポリシーが継承されない、共通処理がスキップ
 
-3. **Global と Operation のポリシーが両方あるとき、inbound の実行順は？outbound では逆になる理由は？**
-   - キーワード：inbound は外→内、outbound は内→外、玉ねぎの入れ子
+3. **Global と Operation のポリシーが両方あるとき、実行順は何で決まるか？「outbound は自動で逆順」は正しいか？**
+   - キーワード：`<base/>` の位置で決まる、既定（base 先頭）なら inbound も outbound も Global→Operation、自動反転はしない、Calculate effective policy
 
 4. **バックエンドのレスポンスを書き換えたいときは、どのセクション？**
    - キーワード：outbound
