@@ -52,6 +52,17 @@ flowchart LR
 API の中の**個々のエンドポイント**。HTTP メソッド + URL テンプレートで定義する。
 - 例：`GET /orders/{id}`、`POST /orders`、`DELETE /orders/{id}`
 
+> **初学者向け用語補足：HTTP メソッドとは**
+> リクエストの「**やりたい操作の種類**」を表す動詞。同じ URL でもメソッドで意味が変わる。
+> | メソッド | 意味 | 例 |
+> |---|---|---|
+> | `GET` | 取得（読む） | 注文を見る |
+> | `POST` | 作成（新規） | 注文を作る |
+> | `PUT` / `PATCH` | 更新（PUT=全置換 / PATCH=一部変更） | 注文を直す |
+> | `DELETE` | 削除 | 注文を消す |
+>
+> `{id}` は **URL テンプレート**のプレースホルダで、`/orders/42` のように実際の値が入る部分。`context.Request.MatchedParameters` でその値（42）を取り出せる（Week 4）。
+
 ### API の URL 構造
 
 ```
