@@ -64,6 +64,34 @@ flowchart LR
 
 > **覚え方**：External=「**入口は公開**、バックエンドは VNet」。Internal=「**入口も VNet 内**（外から直接は触れない）」。
 
+#### 補足：APIM 本体の場所と VIP / DIP（公式用語）
+**External でも Internal でも、APIM 本体は同じく VNet のサブネット内**に配置される（「External だから VNet の外」ではない）。違いは「入口をどのロードバランサで公開するか」だけ。
+
+APIM は内部に2種類の IP を持つ：
+
+| 用語 | 正体 | 用途 |
+|---|---|---|
+| **VIP（Virtual IP）** | ロードバランサの代表アドレス | **クライアントが到達する入口**。External=パブリック VIP / Internal=内部LBのプライベート VIP |
+| **DIP（Dynamic IP）** | サブネット内の**各 VM のプライベート IP** | APIM が **VNet/ピアVNet のバックエンドへ出ていく**ために使う。**クライアントの接続先ではない** |
+
+- 内部のロードバランサは **Azure（APIM）管理**。既定で全受信を拒否するため、**NSG で明示的に許可**が必要
+- **クライアントが叩くのは VIP**。各 VM の DIP は「裏口（バックエンド到達用）」であり、**ユーザーは直接使わない**
+- 「APIM の入口がプライベート IP」なのは **Internal モードの話**（内部LBのプライベート VIP）。External の入口はパブリック VIP
+
+```
+■ External   [クライアント] → [パブリックVIP / 外部LB] → [VM群(DIP)=APIM] → [VNet内バックエンド]
+■ Internal   [VNet内クライアント] → [プライベートVIP / 内部LB] → [VM群(DIP)=APIM] → [VNet内バックエンド]
+```
+
+> 細かい更新（2024年5月〜）：Internal はパブリック IP リソース不要に、External もパブリック IP は任意（未指定なら Azure 管理のパブリック IP が自動使用）。
+
+#### Internal は外部から直接アクセス不可・モードは排他
+- **Internal は外部（インターネット）からゲートウェイに直接届かない**（VNet 内限定）。外部公開したいなら**前段に Application Gateway/Front Door**を置いて中継（§4）
+- モードは `None / External / Internal` の**排他的な1択**。**1インスタンスで External と Internal は共存できない**
+- 「内部からも外部からも使いたい」は **Internal + 前段WAF** で実現するのが定番（External 単体でも公開＋VNet到達は可能だが、ゲートウェイが公開される）
+
+> 補足：Internal でも管理（コントロールプレーン）通信は別経路で届く（`ApiManagement` サービスタグ・ポート 3443）。これは API を叩くデータプレーンとは別。
+
 ---
 
 ## 2. 「注入（injection）」と「統合（integration）」の違い（重要）
@@ -84,6 +112,29 @@ v2 ティアでは用語が変わるので混乱しやすい。**注入と統合
 > - **統合（v2）**＝APIM は公開のまま、出口だけ VNet に「腕を伸ばす」
 >
 > ※ Premium v2 には outbound/inbound 両方を分離する**注入**もある（gateway のみ対象）。
+
+#### v2 には「Internal モード」という名前はない（重要）
+v1 の「External/Internal モード」は v2 にはない。**ゴール（外部遮断して内部限定）は同じでも、手段と用語が違う**。
+
+| やりたいこと | v1（classic） | v2 |
+|---|---|---|
+| 送信だけ VNet（入口は公開） | （該当なし） | **VNet 統合**（Standard v2 / Premium v2） |
+| ゲートウェイを非公開（内部限定） | **Internal モード**（内部LB） | **Premium v2 の VNet 注入**（ゲートウェイがプライベート IP）／または **受信 Private Endpoint + パブリックアクセス無効化**（§3） |
+
+- **v2 の「VNet 統合」は Internal ではない**：ゲートウェイ・管理・ポータルは**公開のまま**、送信だけ VNet へ
+- v2 で外部遮断するには、内部LB という言い方ではなく **Private Link（Private Endpoint）やサブネット注入のプライベート IP** で達成する
+
+#### 日本語公式の用語に注意（表記揺れ）
+日本語版ドキュメントは**機械翻訳（ms.translationtype: MT）で表記がブレている**。同じ英語 "injection" が「**注入**」「**挿入**」「**インジェクション**」と混在している。
+
+| 本ノートの用語 | 日本語公式での表記（揺れ） | 英語の正式用語 |
+|---|---|---|
+| VNet **注入** | 「注入」「挿入」「インジェクション」が混在 | **injection** |
+| VNet **統合** | 「統合」 | **integration** |
+| External / Internal | 「外部 / 内部」 | External / Internal |
+| Private Endpoint | 「受信プライベート エンドポイント」 | Inbound private endpoint |
+
+> 混乱を避けるには、**英語の "injection（注入/挿入）" と "integration（統合）" の区別**で覚えるのが確実。本ノートが英語を併記しているのはこのため。
 
 ---
 
