@@ -1,0 +1,36 @@
+<!--
+  Orders API のポリシー（Week 3/4 の実践）
+  スコープ: API（All operations）。各セクションの <base /> は親(Global/Product)を継承（Week 3）
+-->
+<policies>
+  <inbound>
+    <base />
+    <!-- レート制限：サブスク単位（無ければIP）。5回/30秒を超えたら 429（Week 4） -->
+    <rate-limit-by-key calls="5" renewal-period="30"
+        counter-key="@(context.Subscription?.Id ?? context.Request.IpAddress)"
+        remaining-calls-header-name="X-RateLimit-Remaining" />
+    <!-- リクエストにヘッダを付けてバックエンドへ（Week 3/4） -->
+    <set-header name="X-Source" exists-action="override">
+      <value>apim</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <base />
+    <!--
+      バックエンドを Managed Identity で認証する場合（Week 5）。
+      Function 側に Entra 認証(Easy Auth)が必要なため、本デモ(匿名Function)では無効化している。
+      有効化するには Function App に認証を構成し、resource にそのアプリ ID URI を指定する:
+      <authentication-managed-identity resource="api://<your-function-app-id>" />
+    -->
+  </backend>
+  <outbound>
+    <base />
+    <!-- レスポンスにヘッダを付けてクライアントへ（Week 3/4） -->
+    <set-header name="X-Powered-By" exists-action="override">
+      <value>apim-week10</value>
+    </set-header>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
