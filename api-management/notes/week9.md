@@ -276,10 +276,45 @@ APIM の構成を**宣言的に管理し、環境間（dev→prod）で再現**�
 
 | 手段 | 内容 |
 |---|---|
-| **APIOps** | APIM 構成を**抽出 → Git 管理 → デプロイ**するフレームワーク（[Azure/apiops](https://github.com/Azure/apiops)） |
+| **APIOps（API Operations）** | APIM 構成を**抽出 → Git 管理 → デプロイ**するフレームワーク（[Azure/apiops](https://github.com/Azure/apiops)） |
 | **Bicep / ARM** | IaC でインスタンス・API・ポリシーを定義（Week 10 で実践） |
 
 > **解く課題：環境間の構成ドリフト**。ポータルで手動変更を重ねると dev と prod がズレていく。APIOps/IaC なら「構成はコード（Git）が真実」となり、再現性・レビュー・ロールバックが効く。Week 10 の Bicep 実装の前提知識。
+
+### APIOps の使い方イメージ
+
+ポータル直編集の弊害（**ドリフト・無履歴・戻せない**）を、「**設定を Git に置き → PR でレビュー → パイプラインで各環境へ配る**」形にする＝GitOps。
+
+**2つの道具**
+| ツール | 役割 | 向き |
+|---|---|---|
+| **Extractor（抽出）** | APIM の現在の構成を**ファイル化して Git に書き出す** | APIM → Git |
+| **Publisher（発行）** | Git の構成を**対象の APIM に適用**（環境差は override） | Git → APIM |
+
+書き出される中身は既習のもの：**API 定義・Operation・ポリシー XML（Week 3/4）・プロダクト・サブスク・Named value**。
+
+```mermaid
+flowchart LR
+    DEV["dev APIM<br/>ポータルで変更"]
+    GIT["Git リポジトリ<br/>YAML + policy XML"]
+    PR["PR レビュー → main にマージ"]
+    PROD["prod APIM"]
+
+    DEV -->|"① Extractor で抽出"| GIT
+    GIT -->|"② レビュー"| PR
+    PR -->|"③ Publisher（CI/CD）で適用"| PROD
+```
+
+1. 開発者が dev の APIM をポータルで変更（例：ポリシー追加）
+2. **Extractor** 実行 → dev の構成が YAML + policy XML として Git に出力
+3. commit → **PR** で差分をレビュー
+4. main にマージ
+5. **パイプライン（GitHub Actions / Azure DevOps）が Publisher を実行** → prod に同じ構成を適用
+   - 環境差（dev/prod の URL 等）は **Named value の override** で吸収（Week 2/5 の「環境切り替え」が活きる）
+
+> **Bicep（Week 10）との違い**：どちらも IaC/CI-CD で目的（構成をコードで真実化）は同じだが起点が逆。
+> - **APIOps＝ポータル起点**（既存設定を抽出して Git 化）。ポータルで作るチーム向け
+> - **Bicep＝コード起点**（最初からコードで宣言）。コードファースト向け
 
 ---
 
