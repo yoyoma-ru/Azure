@@ -51,6 +51,63 @@ Week 2 では手動で Operation を作ったが、実務では**既存の定義
 
 > 補足：**REST** = Representational State Transfer（今主流の API スタイル。HTTP メソッド＋URL＋JSON）。**RPC** = Remote Procedure Call（離れたサーバの関数を、手元の関数のように呼ぶ方式）。
 
+#### 「XML ベース」とは
+「〜ベース」=「〜を土台にした」。**XML ベース = メッセージをすべて XML（→ Week 3）で表現する方式**。SOAP は XML ベースなので、1回のやり取りが丸ごと XML 文書になる。
+
+SOAP（XML ベース）のリクエスト例 ↓
+```xml
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Body>
+    <getOrder><orderId>42</orderId></getOrder>
+  </soap:Body>
+</soap:Envelope>
+```
+同じことを REST なら `GET /orders/42` だけ（本文すら不要）。
+> **イメージ**：XML ベース(SOAP) = 役所の「申請書一式」（封筒・本体と様式に全部記入、堅牢だが冗長）。REST(JSON) = 付箋に「42番ちょうだい」と書く感覚（軽い）。
+
+#### REST：実際に何を送っているのか（具体例）
+HTTP リクエストは「**リクエスト行 + ヘッダ + 本文**」でできている。
+
+**例1：注文を取得（GET）**
+```
+GET /store/orders/42 HTTP/1.1          ← ① メソッド + パス
+Host: contoso.azure-api.net            ← ② ヘッダ
+Ocp-Apim-Subscription-Key: abc123      ← ② ヘッダ（キー）
+                                        ← ③ 本文：GET は空でOK
+```
+```
+HTTP/1.1 200 OK                        ← ① ステータス行
+Content-Type: application/json         ← ② ヘッダ
+                                        
+{ "orderId": 42, "item": "コーヒー豆", "quantity": 2, "status": "shipped" }   ← ③ 本文(JSON)
+```
+
+**例2：注文を作る（POST）**
+```
+POST /store/orders HTTP/1.1            ← 作成は POST、パスは一覧側
+Host: contoso.azure-api.net
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: abc123
+
+{ "item": "紅茶", "quantity": 1 }       ← ③ 本文：作りたい内容を JSON で
+```
+```
+HTTP/1.1 201 Created                    ← 「作成できた」を表す 201
+Content-Type: application/json
+
+{ "orderId": 43, "item": "紅茶", "quantity": 1, "status": "pending" }
+```
+
+**ここで Week 1〜5 がつながる**
+- パス `/store/orders/42` が Week 2 の Operation `GET /orders/{id}`（id=42）にマッチ
+- `Ocp-Apim-Subscription-Key` ヘッダが Week 2 のサブスクリプションキー
+- `200`/`201`/`429` が Week 4 のステータスコード
+- ポリシーはこの**リクエストを inbound で、レスポンスを outbound で**加工する（Week 3）
+
+> **REST の4原則**：① リソース指向（モノを URL で表す）② HTTP メソッドを動詞に ③ ステートレス（各リクエストが自己完結・サーバは前回を覚えない）④ 標準ステータスコード。
+> **イメージ（図書館）**：本(リソース)に棚番号(URL)、借/返/閲覧は決まった動作(メソッド)、司書は前回を覚えない＝毎回会員証(ステートレス)。
+> ステートレスは Week 5 の「毎回 JWT を送る」設計と相性が良く、スケールしやすい。
+
 ---
 
 ## 2. バージョン（Versions）
