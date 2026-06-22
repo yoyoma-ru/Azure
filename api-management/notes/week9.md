@@ -125,6 +125,68 @@ REST 以外も APIM で公開・統制できる（各プロトコルの中身は
 
 Azure OpenAI / 各種 LLM を APIM の背後に置き、**ゲートウェイとして統制**する一連の機能（AI gateway）。
 
+### 全体像：APIM は「アプリ群」と「LLM 群」の間の門番
+アプリは **OpenAI を直接呼ばず、APIM の単一エンドポイント**を呼ぶ（OpenAI のキー/エンドポイントはアプリに持たせない＝Week 1 のファサードを AI に適用）。
+
+```mermaid
+flowchart LR
+    A1["部門Aのアプリ"]
+    A2["部門Bのアプリ / AIエージェント"]
+    GW["API Management（AIゲートウェイ）<br/>認証・token-limit・semantic-cache・LB・監視"]
+    O1["Azure OpenAI① (PTU)"]
+    O2["Azure OpenAI② (従量)"]
+    O3["他プロバイダ LLM"]
+    REDIS["外部 Redis（セマンティックキャッシュ）"]
+    MON["Azure Monitor / App Insights"]
+
+    A1 -->|"単一エンドポイント"| GW
+    A2 -->|"単一エンドポイント"| GW
+    GW -->|"優先1"| O1
+    GW -->|"優先2"| O2
+    GW -->|"フォールバック"| O3
+    GW -->|"キャッシュ照合/保存"| REDIS
+    GW -->|"トークン消費を記録"| MON
+```
+
+### 1リクエストの経路（具体的な流れ）
+```
+[部門Aのアプリ]
+   │ ① APIM の単一エンドポイントへ（キー/JWT 付き）
+   ▼
+[APIM inbound]
+   ② 認証（キー/JWT 検証）
+   ③ llm-token-limit：部門AのTPM枠を超えてないか（超過なら 429・他部門は無事）
+   ④ llm-content-safety：プロンプト検査（有害なら遮断）
+   ▼
+[APIM semantic-cache-lookup]
+   ⑤ 意味が近い過去プロンプトが Redis にある？
+        → あれば【キャッシュ応答で即返す】（OpenAI を呼ばない＝トークン0・高速）
+        → なければ次へ
+   ▼
+[APIM backend（プール）]
+   ⑥ OpenAI デプロイを選択：優先①PTU → ②従量（priority + LB）
+   ⑦ managed identity で認証（アプリにもAPIMにも OpenAI キーを置かない）
+   ⑧ 429/障害ならサーキットブレーカーで外して次のデプロイへ
+   ▼
+[Azure OpenAI] ⑨ 補完（completion）を生成して返す
+   ▼
+[APIM outbound]
+   ⑩ semantic-cache-store：回答を Redis に保存（次回の類似質問用）
+   ⑪ llm-emit-token-metric：部門A のトークン消費を Azure Monitor に記録
+   ▼
+[部門Aのアプリ] ← 応答
+```
+
+### 直接呼びとの違い（APIM が「やっていること」）
+| 観点 | アプリが OpenAI を直接呼ぶ | APIM を挟む |
+|---|---|---|
+| エンドポイント | 各アプリが個別に知る | **単一の入口**に集約 |
+| トークン配分 | 1アプリが TPM を独占しうる | **部門ごとに TPM 枠**（llm-token-limit） |
+| コスト/速度 | 毎回 OpenAI を消費 | **セマンティックキャッシュ**で類似質問は再利用 |
+| 可用性 | デプロイが落ちたら停止 | **複数デプロイをLB＋サーキットブレーカー**で継続 |
+| 認証 | 各アプリが OpenAI キー保持（漏洩リスク） | **managed identity**でキーレス |
+| 監視 | アプリ任せ | **部門別トークン消費を一元可視化** |
+
 ### なぜ要るか
 生成 AI の主資源は**トークン**。モデルには TPM（Tokens Per Minute）の割り当てがある。アプリが増えると「1つのアプリが全 TPM を食って他が詰まる」問題が起きる。→ **APIM で消費を配分・可視化・防御**する。
 
