@@ -22,3 +22,6 @@ env/
 local.settings.json
 bin/
 obj/
+
+# Bicep ビルド成果物
+infra/main.json

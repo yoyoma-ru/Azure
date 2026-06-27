@@ -1,0 +1,4 @@
+azure-functions
+redis
+redis-entraid
+azure-identity
