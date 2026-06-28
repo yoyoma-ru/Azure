@@ -22,6 +22,17 @@ Week 1 で「メッセージ / イベント / ストリーム」という**運�
 
 3サービスとも「**外側の入れ物 → データを通す管 → 受信側の単位**」という3層構造を持つ。名前は違うが役割で対応づけられる。
 
+> **初学者向け用語補足：オブジェクトモデルとは**
+> 「そのサービスが**どんな部品（リソース）から構成され、それらがどういう親子関係で組み合わさっているか**」を表した**構成の地図（設計図）**のこと。難しく考えず「**このサービスを作っている部品の種類と階層構造**」と捉えればよい。
+> 身近な例：フォルダの世界は「**ドライブ → フォルダ → ファイル**」という入れ子構造を持つ。この構造のルールがフォルダの"オブジェクトモデル"。
+> 各サービスを深掘りする前にこれを揃えるのは、**部品の名前と並びが頭に入っていないと用語が衝突して混乱する**から（特に「Topic」は3サービスで別物。§1-1 の区別表を参照）。Storage の Week 2「アカウント → コンテナ → Blob」も同じく Blob のオブジェクトモデルを扱った回。
+>
+> ```text
+> 【オブジェクトモデル＝部品の階層構造】
+>   フォルダの例:   ドライブ → フォルダ → ファイル
+>   Service Bus:    Namespace → Queue/Topic → Subscription
+> ```
+
 **Service Bus**
 
 ```mermaid
@@ -97,6 +108,17 @@ flowchart LR
 - **Event Hub**＝**追記専用ログ（append-only log）**。送られたイベントは**末尾に積まれ続ける**（取っても消えない。保持期間で自動失効）。Kafka の topic に相当。
 - **Partition**＝そのログを**並列化**したもの。1つの Event Hub が複数の Partition を持ち、各 Partition は**到着順を保つ独立した列**。並列度＝スループットの上限を決める。
 - **Consumer Group**＝ストリームの**独立したビュー**。複数の Consumer Group が**同じデータを各自の位置で**読める（分析用・アーカイブ用・アラート用…を別々に）。
+
+> **初学者向け用語補足：Kafka（Apache Kafka）とは**
+> **大量のイベント/ログを高速に流し込んで貯め、後から複数の読み手が好きに読める「分散ストリーミング基盤」のオープンソースソフト**。LinkedIn 発・2011年公開で、いまやこの分野の**事実上の標準（デファクト）**。役割は Event Hubs とほぼ同じ立ち位置で、**Event Hubs は「Kafka の運用を Azure に丸投げできるフルマネージド版」**と捉えるとよい（Week 1 で学んだ"フルマネージド"の発想）。
+> - **用語がほぼ共通**：Kafka の topic / partition / consumer group / offset は、そのまま Event Hubs にも出てくる（partition・consumer group・offset は元々 Kafka 由来）。だから公式も「**Event Hub ＝ Kafka の topic に相当**」と書く。
+> - **Kafka 互換の意味**：Event Hubs は Kafka プロトコルも喋れるので、**Kafka 向けに書かれた既存アプリを、接続先を向け替えるだけでコードほぼそのまま Event Hubs で動かせる**（自前 Kafka クラスタの運用から解放される）。詳しい使い方は Week 9。
+>
+> ```text
+> Apache Kafka          : 自分でサーバ/クラスタを建てて運用する流儀（OSS）
+> Azure Event Hubs      : 同じ流儀のまま運用を Azure に丸投げできる版（フルマネージド・Kafka互換）
+>   topic ⇔ Event Hub / partition ⇔ Partition / consumer group ⇔ Consumer Group / offset ⇔ offset
+> ```
 
 ```mermaid
 flowchart LR
