@@ -22,17 +22,25 @@ Week 1 で「メッセージ / イベント / ストリーム」という**運�
 
 3サービスとも「**外側の入れ物 → データを通す管 → 受信側の単位**」という3層構造を持つ。名前は違うが役割で対応づけられる。
 
+**Service Bus**
+
 ```mermaid
-flowchart TD
-    subgraph SB["Service Bus"]
-        SBN["Namespace"] --> SBQ["Queue / Topic"] --> SBS["（Topicの場合）Subscription"]
-    end
-    subgraph EH["Event Hubs"]
-        EHN["Namespace"] --> EHH["Event Hub<br/>（追記専用ログ）"] --> EHP["Partition"] --> EHC["Consumer Group"]
-    end
-    subgraph EG["Event Grid"]
-        EGT["Topic<br/>（System/Custom/…）"] --> EGS["Event Subscription"]
-    end
+flowchart LR
+    SBN["Namespace"] --> SBQ["Queue / Topic"] --> SBS["（Topicの場合）<br/>Subscription"]
+```
+
+**Event Hubs**
+
+```mermaid
+flowchart LR
+    EHN["Namespace"] --> EHH["Event Hub<br/>（追記専用ログ）"] --> EHP["Partition"] --> EHC["Consumer Group"]
+```
+
+**Event Grid**
+
+```mermaid
+flowchart LR
+    EGT["Topic<br/>（System/Custom/…）"] --> EGS["Event Subscription"]
 ```
 
 ### 1-1. 役割で並べた対応表
