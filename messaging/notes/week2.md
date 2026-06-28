@@ -97,8 +97,18 @@ flowchart LR
     end
 ```
 
-> **初学者向け用語補足：competing consumers（競合コンシューマー）**
+> **初学者向け用語補足：competing consumers（競合コンシューマー）と「ワーカー」の正体**
 > 1つの Queue に複数のワーカーをつなぐと、ワーカーたちが**メッセージを取り合う**。各メッセージは**ちょうど1人**が取る（取り合いに勝った者勝ち）。これで**自然に負荷分散**される——速いワーカーは多く処理し、遅いワーカーは少なく処理する。Queue が「pull 型」だからこそできる（§2）。Topic の各 Subscription も内部は仮想キューなので、Subscription ごとに competing consumers を組める。
+> - **ワーカー（consumer）とは何か**：Service Bus が用意するものではなく、**あなたが書いた「メッセージを受け取って処理するアプリ」**のこと。Service Bus SDK でキューに接続し `receive()` で取りに行く側＝**クライアント**。その「1台」を複数並べたものが competing consumers。
+> - **ワーカーの実体の例**：受信アプリの**プロセス/インスタンス**を複数起動／Kubernetes の **Pod を replicas=3**／**Azure Functions（Service Bus トリガー）が自動で並列起動した各実体**／**VM 上の常駐サービス**——いずれも「キューに取りに来るクライアント」。
+> - **「コピーを配る」のと混同しない**：Topic→各 Subscription は**用途ごとにコピー**を配る（在庫用・分析用…）。competing consumers は**1つのキュー/Subscription の中で同じ仕事を複数台で手分け**する。**用途を分ける** ≠ **手分けする**。
+>
+> ```text
+>                   ┌──→ ワーカー1（受信アプリのインスタンス＝クライアント）
+>   Queue: orders ──┼──→ ワーカー2（同じアプリの別インスタンス）
+>   [m1][m2][m3]    └──→ ワーカー3（同上）
+>     m1→W1, m2→W2, m3→W3 … 空いている台が1つずつ取る（各メッセージは1台だけ）
+> ```
 
 > **初学者向け用語補足：Subscription の rules / SQL filter**
 > Topic の各 Subscription は「**どのメッセージを受けるか**」を**ルール（filter condition）**で絞れる。既定は「全部受ける（true フィルタ）」。例えば `StoreName = 'Tokyo'` という SQL フィルタを置けば、その Subscription には東京店のメッセージだけがコピーされる。Event Grid のフィルタ（§後述）と発想は同じだが、**Service Bus はメッセージのプロパティに対する SQL 式**が書ける点が強力。
