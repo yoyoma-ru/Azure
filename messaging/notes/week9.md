@@ -38,7 +38,7 @@ flowchart LR
 
 ### 1-2. 形式とウィンドウ
 
-- **形式**：既定は **Apache Avro**（スキーマ内蔵のコンパクトなバイナリ形式。Hadoop / Stream Analytics / Data Factory が扱える）。Portal の **no-code エディタ**経由なら **Parquet**（分析向け列指向）でも保存できる。
+- **形式**：既定は **Apache Avro（アヴロ）**（スキーマ内蔵のコンパクトなバイナリ形式。Hadoop / Stream Analytics / Data Factory が扱える）。Portal の **no-code エディタ**経由なら **Parquet（パーケイ）**（分析向け列指向）でも保存できる。
 - **ウィンドウ（いつ書き出すか）**：**サイズ** と **時間** の2条件を設定し、**先に達した方（first wins）**で書き出す。例：「15分 / 100MB」で毎秒1MB なら、サイズ（100MB＝約100秒）が先に発火。
 - **パーティション独立**：各パーティションが独立に書き出し、ブロック Blob を作る。
 
