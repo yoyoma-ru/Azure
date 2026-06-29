@@ -82,6 +82,21 @@ flowchart LR
 - **Queue**＝**Point-to-point（1対1）**。FIFO で並び、**competing consumers**（複数ワーカー）が取り合い、**1メッセージは1ワーカーだけ**が処理する。タスク分散・負荷平準化向き。
 - **Topic + Subscription**＝**Publish/Subscribe（1対多）**。発行者が Topic に送ると、**各 Subscription にコピー**が置かれる。Subscription は「**仮想キュー**」で、受信側から見れば Queue と同じように扱える。
 
+> **初学者向け用語補足：エンティティ（messaging entity）／「1エンティティ」とは**
+> Service Bus で**エンティティ**＝名前空間の中に作る「メッセージを保持・配送する個々の入れ物」＝ **Queue / Topic / Subscription** の総称。名前空間は**エンティティを入れる管理コンテナ**で、エンティティ自体ではない。
+>
+> ```text
+> Namespace: sbns-xxxxx            ← 管理コンテナ（エンティティではない）
+>   ├─ Queue: orders               ← エンティティ
+>   ├─ Topic: order-events         ← エンティティ
+>   │    ├─ Subscription: inventory ← エンティティ
+>   │    └─ Subscription: analytics ← エンティティ
+>   └─（orders/$deadletterqueue は orders に自動付帯する副エンティティ＝Week 4 §1）
+> ```
+> **「1エンティティ」＝そのうちの1つ**（`orders` というキュー1つ、等）。この単位で各種の制約・上限が効くので、後の週で重要：
+> - **トランザクション（Week 5 §1）**：素のトランザクションは「**1エンティティ内**の操作」が基本（同じキューに複数 send 等）。別エンティティをまたぐには send-via が要る。
+> - **SAS（Week 6 §1-3）**：SAS ポリシーは**エンティティごと（キュー/トピック単位）にも名前空間全体にも**設定でき、その単位ごとに最大12ルール。
+
 ```mermaid
 flowchart LR
     subgraph Q["Queue（1対1）"]
