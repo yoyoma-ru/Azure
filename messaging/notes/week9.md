@@ -141,6 +141,49 @@ Avro（§1）は1件ごとにスキーマを内蔵できるが、**毎メッセ�
 
 スキーマは時間とともに変わる（フィールド追加など）。Schema Registry は**互換性ルール**（後方互換／前方互換）を持ち、「**古いコンシューマを壊さずにスキーマを更新**」できるよう管理する。これにより、送り手と受け手を**別々のペースで更新**しても壊れない。
 
+> **初学者向け用語補足：スキーマ更新はどう動くか（新旧の混在と互換性）**
+> - **プロデューサ側**：スキーマを変えたら**新スキーマを Registry に登録 → 新 ID をもらい**（旧42→新43）、以降のメッセージに**新 ID を刻む**。
+> - **コンシューマは「新 ID を使え」と教わるわけではない**：**各メッセージが自分の ID を自己申告**するので、コンシューマは**メッセージごとに、そこに書かれた ID のスキーマを引く**だけ。だから新旧が混在しても両方読める。
+>
+> ```text
+>   メッセージX [ID=42][データ] → 「42」を引いて解読
+>   メッセージY [ID=43][データ] → 「43」を引いて解読   ← 各メッセージが自己申告するので混在OK
+> ```
+> - **「壊れない」を保証するのが互換性ルール**：新スキーマ登録時に Registry が「旧と互換か」を検査し、互換でなければ拒否する。
+>
+> | 互換性 | 意味 | 先に更新していいのは |
+> |---|---|---|
+> | **後方互換（backward）** | 新スキーマで**旧データ**が読める | **コンシューマを先に**新版へ |
+> | **前方互換（forward）** | 旧スキーマで**新データ**が読める | **プロデューサを先に**新版へ（旧コンシューマは新フィールドを無視して読める） |
+>
+> 仕組み：コンシューマは「メッセージが書かれたスキーマ（ID で取得＝writer）」と「自分のコードが期待するスキーマ（reader）」を Avro が突き合わせ、**足りないフィールドはデフォルトで補い・余分は無視**する（スキーマ解決）。互換性ルールがこの解決の成立を保証する。
+
+> **初学者向け用語補足：スキーマID はプログラムのどこで指定するか**
+> **生の ID を自分でコードに書くことはない。** ID の発行・刻印・読み取りは**シリアライザ（エンコーダ）層**が自動でやる。あなたが渡すのは**スキーマ（定義）**であって ID ではない。
+>
+> ```python
+> from azure.schemaregistry import SchemaRegistryClient
+> from azure.schemaregistry.encoder.avroencoder import AvroEncoder
+> sr = SchemaRegistryClient(fully_qualified_namespace="...servicebus.windows.net", credential=cred)
+> encoder = AvroEncoder(client=sr, group_name="telemetry-schemas", auto_register=True)
+>
+> # === プロデューサ ===
+> schema = '{"type":"record","name":"Telemetry","fields":[\
+> {"name":"deviceId","type":"string"},{"name":"temperature","type":"int"}]}'
+> event = encoder.encode({"deviceId":"device-1","temperature":21},
+>                        schema=schema, message_type=EventData)  # ← 渡すのは schema。ID ではない
+> # encode が「スキーマ登録→ID取得→Avro直列化→IDを content_type に刻印」までやる
+> await producer.send_batch([event])     # event.content_type == "avro/binary+<schema-id>"
+>
+> # === コンシューマ ===
+> async def on_event(ctx, event):
+>     obj = encoder.decode(event)        # content_type の ID を読む→Registryで引く→デコード（キャッシュ）
+>     print(obj["deviceId"], obj["temperature"])
+> ```
+> - **ID の物理的な居場所**：メッセージの**メタデータ（Azure では `content_type` ＝ `avro/binary+<schema-id>`）**。本文データとは別の小さな欄。
+> - **あなたが指定するのはスキーマ**：`encode(schema=...)` に定義（または生成クラス）を渡す。ID はエンコーダが自動採番・刻印。
+> - **コンシューマも ID を書かない**：`decode(event)` が content_type の ID を読んで自動で引く。業務コードは「ただのオブジェクト」を受け取るだけ。だから**スキーマ更新時にコンシューマのコードを触らずに済む**ことが多い。
+
 > **位置づけ**：Schema Registry は Azure Event Hubs の名前空間内で提供され、**Kafka エコシステムの Schema Registry（Confluent 等）に相当**する役割。Avro / JSON スキーマを登録できる。大量ストリームで「データの品質・整合」を守る土台。
 
 ---
