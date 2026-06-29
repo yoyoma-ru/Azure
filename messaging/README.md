@@ -71,7 +71,7 @@ flowchart TD
 |---|---|---|
 | **[7](notes/week7.md)** | ストリーミングの仕組み | パーティション、コンシューマーグループ、オフセット/チェックポイント、TU/PU |
 | **[8](notes/week8.md)** | プロデューサ／コンシューマ実装 | 送受信 SDK、EventProcessorClient、バッチ送信、負荷分散 |
-| **9** | 取り込み基盤としての連携 | Capture(Parquet/Avro→Storage)、Kafka 互換エンドポイント、Schema Registry |
+| **[9](notes/week9.md)** | 取り込み基盤としての連携 | Capture(Parquet/Avro→Storage)、Kafka 互換エンドポイント、Schema Registry |
 | **10** | セキュリティ・監視・スケーリング | Auto-inflate/Dedicated、Entra ID、Stream Analytics 連携 |
 
 ### Part C — Event Grid（Week 11–14）※イベントルーティング
