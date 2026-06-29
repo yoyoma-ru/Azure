@@ -204,6 +204,18 @@ for msg in msgs:
 
 Queue は1対1。**同じメッセージを複数の用途に配りたい**なら Topic/Subscription（Week 2 §1-2）。
 
+> **初学者向け用語補足：Subscription は「仮想キュー」とはどういう意味か**
+> 公式は Subscription を「**a virtual queue（仮想キュー）**」と表現する。意味は「**物理的に独立したキューではないが、受信側から見るとキューそのものとして振る舞う**」こと。
+> - **直接は送れない**：送り先は **Topic だけ**。Topic が各 Subscription に**コピーを投げ込み**、その結果 Subscription が「中身の溜まったキュー」のように見える。本物の Queue は送信側がそのキューに直接送るのに対し、Subscription は **Topic 経由でコピーが入ってくる**——ここが「仮想」の由来。
+> - **受信コードは Queue と同じ**：`receive_messages` / `complete_message` / PeekLock / competing consumers / FIFO / DLQ など、**Queue でできることが Subscription でもそのまま使える**（窓口を `get_queue_receiver` → `get_subscription_receiver` に変えるだけ）。
+>
+> ```text
+>             ┌─ Subscription: inventory ← キューのように溜まる（受信側は普通のキュー扱い）
+> 発行 → Topic ┤
+>             └─ Subscription: analytics ← 同上
+>   送り先は Topic のみ。Topic が各 Subscription にコピーを置く＝「仮想キュー」。
+> ```
+
 ```bash
 # Topic と、用途別の Subscription を2つ作る
 az servicebus topic create -g $RG --namespace-name $SBNS -n order-events
