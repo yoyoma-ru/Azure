@@ -61,7 +61,7 @@ flowchart TD
 | Week | テーマ | 主な内容 |
 |---|---|---|
 | **[3](notes/week3.md)** | Queue と Topic-Subscription の基礎 | 送受信、PeekLock vs ReceiveAndDelete、ロック・補完 |
-| **4** | 信頼性を支える高度機能 | DLQ、セッション(FIFO)、重複検出、スケジュール配信、メッセージ遅延 |
+| **[4](notes/week4.md)** | 信頼性を支える高度機能 | DLQ、セッション(FIFO)、重複検出、スケジュール配信、メッセージ遅延 |
 | **5** | トランザクションと大容量 | トランザクション、自動転送(Auto-forward)、大容量メッセージ(Premium)、AMQP/JMS |
 | **6** | セキュリティ・監視・スケーリング | Entra ID/RBAC/SAS、Metrics/診断ログ、Premium/Geo-DR |
 
