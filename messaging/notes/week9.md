@@ -77,6 +77,20 @@ sasl.mechanism=OAUTHBEARER          # Entra ID（OAuth 2.0）の場合。SAS な
 - **対応**：standard / premium / dedicated ティア、**Kafka 1.0 以降**。
 - **認証**：TLS 必須（`SASL_SSL`）。**OAUTHBEARER**（Entra ID）または **PLAIN**（SAS）。Week 6 のセキュリティと同じ考え方。
 
+> **初学者向け用語補足：OAUTHBEARER / PLAIN はどこから来た用語か**
+> これらは **Azure の用語ではなく、SASL（サスル / Simple Authentication and Security Layer）という認証の業界標準の「メカニズム名」**。Kafka は認証にこの SASL を使うので、Kafka で繋ぐときだけ登場する。
+> - **SASL**＝認証方式を差し替え可能にする枠組み。名前付きの方式（メカニズム）が複数ある：**PLAIN**（ユーザー名＋パスワード）・**OAUTHBEARER**（OAuth 2.0 トークンを運ぶ）・SCRAM・GSSAPI(Kerberos) など。
+> - **Azure の認証を SASL メカニズムに対応づける**：Kafka は「Entra ID」「SAS」という Azure 用語を知らないので、標準メカニズム名に翻訳して渡す。
+>
+> ```text
+> Entra ID（Azureのid）→ OAuth2.0トークン発行 → SASL の OAUTHBEARER で運ぶ
+> SAS（Azureの共有鍵）  → ユーザー名/パスワード形式 → SASL の PLAIN で運ぶ
+>   security.protocol=SASL_SSL … 「SASLで認証 + TLSで暗号化」を指すKafkaの設定値
+>   sasl.mechanism=OAUTHBEARER … そのうちどのメカニズムか
+> ```
+> たとえ：SASL は「認証情報を入れる**封筒の規格**」。Kafka は OAUTHBEARER 封筒か PLAIN 封筒しか受け取らない。Azure の Entra ID トークンは OAUTHBEARER 封筒に、SAS 接続文字列は PLAIN 封筒に入れて渡す（中身は Azure、封筒は Kafka 標準）。
+> - **普段見かけない理由**：この名前が出るのは **Kafka プロトコルで繋ぐときだけ**。ネイティブの Azure SDK（AMQP・Week 8 の `azure-eventhub`）では `DefaultAzureCredential` や接続文字列を渡すだけで、OAUTHBEARER/PLAIN は表に出ない（SDK が AMQP のやり方で認証するため）。
+
 ### 2-2. 概念の対応（Kafka ⇔ Event Hubs）
 
 両者は「**パーティション化されたログ**」で発想がほぼ同じ（Week 2 §1-3・Week 7）。
