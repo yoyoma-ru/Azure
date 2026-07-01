@@ -40,6 +40,30 @@ Week 11-12 で学んだのは Event Grid の**従来型（Basic・push 配信）
 
 > **ポイント**：Week 11 の4トピック（System 等）は Basic の話。名前空間モデルは**別系統の新しいリソース**で、**自分のアプリが発行するイベント**を pull で受けたり、**MQTT デバイス**を繋いだりする用途。用途で選ぶ。
 
+> **重要な概念の区別：Basic と Namespaces は「別リソース・別コマンド」で独立共存**
+> 「名前空間のプッシュが従来 Basic を担っている？」——**違う**。両者は**リソースタイプも CLI コマンドも作成手順も別**の、独立した2系統（別 SKU）。名前空間が Basic を内包・置換しているのではなく、**用途で選ぶ2製品**。
+>
+> | | Basic（従来型） | Namespaces（名前空間） |
+> |---|---|---|
+> | リソースタイプ | `Microsoft.EventGrid/topics`（Custom）・`systemTopics`・`domains`・`partnerTopics` | `Microsoft.EventGrid/namespaces` ＋ `namespaces/topics` ＋ MQTT系 |
+> | CLI | `az eventgrid topic ...` / `event-subscription ...` | `az eventgrid namespace ...` / `namespace topic ...` |
+> | 作成手順 | トピックを**単体で**作る | まず**名前空間**を作り、その中にトピックを作る |
+> | push の宛先 | Functions/Webhook/Service Bus/Event Hubs/Storage Queue/Logic Apps… | **現状は Event Hubs のみ**（将来拡大予定） |
+>
+> ```bash
+> # Basic：Custom トピック＋ push サブスク（単体で作る）
+> az eventgrid topic create -g $RG -n mytopic -l japaneast
+> az eventgrid event-subscription create --name sub1 \
+>   --source-resource-id <topicのリソースID> --endpoint <ハンドラURL>
+>
+> # Namespaces：名前空間 → 名前空間トピック → サブスク（階層が違う）
+> az eventgrid namespace create -g $RG -n myns -l japaneast          # ← まず名前空間
+> az eventgrid namespace topic create -g $RG --namespace-name myns -n mytopic
+> az eventgrid namespace topic event-subscription create -g $RG \
+>   --namespace-name myns --topic-name mytopic -n sub1               # pull / push を選ぶ
+> ```
+> **選び方**：Azure サービスの出来事に反応（Blob作成→Functions 等）＝**Basic**／pull で queue ライクに受ける・MQTT で IoT を繋ぐ＝**Namespaces**。
+
 ---
 
 ## 2. pull 配信：Event Grid でも「取りに行く」
