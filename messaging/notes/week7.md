@@ -55,6 +55,8 @@ flowchart LR
 
 ### 図：パーティション構造
 
+![Event Hubs のパーティション構造](assets/event-hubs-partition-structure.svg)
+
 ```text
                                    Event Hub: telemetry
   producer ─(partition key で   ┌──────────────────────────────────┐

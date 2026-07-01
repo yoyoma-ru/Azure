@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="300" viewBox="0 0 680 300" role="img">
+<title>Event Hubs のパーティション構造</title>
+<desc>プロデューサがパーティションキーでイベントを振り分け、Event Hub 内の3本のパーティション（追記専用ログ）に格納し、複数のコンシューマーグループが独立した offset で読む図</desc>
+<style>
+  text{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans JP","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}
+  .t{font-size:14px;fill:#26251F;}
+  .th{font-size:14px;font-weight:500;fill:#26251F;}
+  .ts{font-size:12px;fill:#5F5E5A;}
+  .box{fill:#FBFAF6;stroke:#DAD8CE;stroke-width:1;}
+  .arr{stroke:#7A7972;stroke-width:1.5;fill:none;marker-end:url(#chev);}
+  .leader{stroke:#B4B2A9;stroke-width:0.8;stroke-dasharray:3 3;fill:none;}
+  .c-teal rect{fill:#E1F5EE;stroke:#0F6E56;stroke-width:1;} .c-teal .th,.c-teal .t{fill:#04342C;} .c-teal .ts{fill:#085041;}
+  .c-purple rect{fill:#EEEDFE;stroke:#534AB7;stroke-width:1;} .c-purple .th{fill:#26215C;} .c-purple .ts{fill:#3C3489;}
+  .c-gray rect{fill:#F1EFE8;stroke:#8A8880;stroke-width:1;} .c-gray .th{fill:#2C2C2A;} .c-gray .ts{fill:#5F5E5A;}
+  @media (prefers-color-scheme:dark){
+    .t,.th{fill:#ECEBE5;} .ts{fill:#B4B2A9;}
+    .box{fill:#26251F;stroke:#44443F;} .arr{stroke:#B4B2A9;}
+    .c-teal rect{fill:#085041;stroke:#5DCAA5;} .c-teal .th,.c-teal .t{fill:#E1F5EE;} .c-teal .ts{fill:#9FE1CB;}
+    .c-purple rect{fill:#3C3489;stroke:#AFA9EC;} .c-purple .th{fill:#EEEDFE;} .c-purple .ts{fill:#CECBF6;}
+    .c-gray rect{fill:#444441;stroke:#B4B2A9;} .c-gray .th{fill:#F1EFE8;} .c-gray .ts{fill:#D3D1C7;}
+  }
+</style>
+<defs><marker id="chev" markerWidth="9" markerHeight="9" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 Z" fill="#7A7972"/></marker></defs>
+
+<g class="c-gray">
+<rect x="44" y="122" width="100" height="56" rx="8"/>
+<text class="th" x="94" y="148" text-anchor="middle">producer</text>
+<text class="ts" x="94" y="164" text-anchor="middle">イベント送信</text>
+</g>
+
+<line class="arr" x1="144" y1="150" x2="248" y2="150"/>
+<text class="ts" x="150" y="142" text-anchor="start">partition key</text>
+
+<rect class="box" x="250" y="44" width="250" height="232" rx="8"/>
+<text class="th" x="262" y="68" text-anchor="start">Event Hub: telemetry</text>
+
+<text class="th" x="262" y="120" text-anchor="start">P0</text>
+<g class="c-teal"><rect x="290" y="104" width="22" height="22" rx="3"/><text class="ts" x="301" y="119" text-anchor="middle">e0</text></g>
+<g class="c-teal"><rect x="312" y="104" width="22" height="22" rx="3"/><text class="ts" x="323" y="119" text-anchor="middle">e1</text></g>
+<g class="c-teal"><rect x="334" y="104" width="22" height="22" rx="3"/><text class="ts" x="345" y="119" text-anchor="middle">e2</text></g>
+<g class="c-teal"><rect x="356" y="104" width="22" height="22" rx="3"/><text class="ts" x="367" y="119" text-anchor="middle">e3</text></g>
+<g class="c-teal"><rect x="378" y="104" width="22" height="22" rx="3"/><text class="ts" x="389" y="119" text-anchor="middle">e4</text></g>
+<line class="arr" x1="404" y1="115" x2="428" y2="115"/>
+<text class="ts" x="434" y="119" text-anchor="start">追記</text>
+
+<text class="th" x="262" y="172" text-anchor="start">P1</text>
+<g class="c-teal"><rect x="290" y="156" width="22" height="22" rx="3"/></g>
+<g class="c-teal"><rect x="312" y="156" width="22" height="22" rx="3"/></g>
+<g class="c-teal"><rect x="334" y="156" width="22" height="22" rx="3"/></g>
+<line class="arr" x1="360" y1="167" x2="384" y2="167"/>
+<text class="ts" x="390" y="171" text-anchor="start">追記</text>
+
+<text class="th" x="262" y="224" text-anchor="start">P2</text>
+<g class="c-teal"><rect x="290" y="208" width="22" height="22" rx="3"/></g>
+<g class="c-teal"><rect x="312" y="208" width="22" height="22" rx="3"/></g>
+<g class="c-teal"><rect x="334" y="208" width="22" height="22" rx="3"/></g>
+<g class="c-teal"><rect x="356" y="208" width="22" height="22" rx="3"/></g>
+<line class="arr" x1="382" y1="219" x2="406" y2="219"/>
+<text class="ts" x="412" y="223" text-anchor="start">追記</text>
+
+<text class="ts" x="262" y="262" text-anchor="start">追記専用ログ（並列）</text>
+
+<line class="leader" x1="500" y1="120" x2="516" y2="128"/>
+<line class="leader" x1="500" y1="214" x2="516" y2="210"/>
+
+<g class="c-purple">
+<rect x="516" y="104" width="124" height="54" rx="8"/>
+<text class="th" x="578" y="126" text-anchor="middle">分析グループ</text>
+<text class="ts" x="578" y="144" text-anchor="middle">独立した offset</text>
+</g>
+<g class="c-purple">
+<rect x="516" y="188" width="124" height="54" rx="8"/>
+<text class="th" x="578" y="210" text-anchor="middle">アーカイブ</text>
+<text class="ts" x="578" y="228" text-anchor="middle">別の offset</text>
+</g>
+</svg>

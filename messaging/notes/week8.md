@@ -189,6 +189,8 @@ python send.py
 
 ### 図：インスタンスを増やしたときの割り当て
 
+![コンシューマーインスタンスとパーティションの割り当て](assets/consumer-instance-ownership.svg)
+
 ```text
 パーティションは4本で固定（P0〜P3）。変わるのはインスタンス数。A〜E＝受信インスタンス。
 
