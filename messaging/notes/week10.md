@@ -51,9 +51,19 @@ Week 8 で自分に付けた **Data Owner** がこれ。本番は最小権限で
 | **Throttled Requests（スロットリング）** | **TU 超過で入力が絞られている**（`ServiceBusy`・Week 7）＝**スケールの合図** |
 | **Captured Messages / Bytes** | Capture が保存できているか。詰まり＝保存先 Storage の問題（Week 9 §1） |
 | **Quota Exceeded Errors** | 接続数・パーティション上限などの超過 |
-| **Consumer Lag**（消費の遅れ） | 読み手が流入に追いついているか。増加＝コンシューマ増設の合図（Week 8 §4） |
+| **Consumer Lag（消費の遅れ）** | 読み手が流入に追いついているか（**下記の重要注記**を参照） |
 
-> **ポイント**：Service Bus の最重要が「DLQ 件数・スロットリング」だったのに対し、Event Hubs は「**スロットリング（TU 不足）**」と「**Consumer Lag（処理の遅れ）**」が要。前者は Auto-inflate（§3）、後者はコンシューマ増設（Week 8 §4）で対処する。診断ログを Log Analytics に送る点は Week 6 と同じ。
+> **ポイント**：Service Bus の最重要が「DLQ 件数・スロットリング」だったのに対し、Event Hubs は「**スロットリング（TU 不足）**」と「**消費の遅れ（Consumer Lag）**」が要。前者は Auto-inflate（§3）で対処。診断ログを Log Analytics に送る点は Week 6 と同じ。
+
+> **重要な概念の区別：Consumer Lag は「EH が読み手の位置を覚えている」わけではない**
+> EH が持続的に知るのは各パーティションの **head（先頭＝最後に書かれた sequence number）** だけ。AMQP のチェックポイントは消費側の Blob（Week 7 §4）なので、**EH は"止まっている読み手の位置"は知らない**。lag は次で成り立つ：
+> ```text
+> lag = head（EH が知る）− 読み手の現在位置（入手経路は下記）
+> ```
+> - **AMQP（Azure SDK・Week 8）**：読み手の位置は**アクティブな受信接続がある間だけ**サービスに見える（受信者がいない間は lag を出せない）。実務では **SDK が自分で算出**するのが基本——受信イベントに相乗りで届く head と、自分が受け取った sequence number を引き算する（＝消費側の計算）。
+> - **Kafka**：消費側が **offset をブローカー（EH）に commit** するので EH 側に位置が記録され、EH が lag を出せる（offset commit が無い＝idle だと lag は止まる）。
+> - **プラットフォームメトリクスとしての `ConsumerLag` は Premium / Dedicated 限定**（アプリケーションメトリクスログ）。Standard では基本 SDK 側で算出する。
+> - **EH は「合図」も「スケール判断」もしない**：EH（や SDK）は lag という**数字を出すだけ**。それを見て「コンシューマを増やす」と判断・実行するのは**あなた or 外部オートスケーラー（KEDA 等）**。増やしたインスタンス間でパーティションを分け合う（リバランス）のは **SDK**（Week 8 §4）。EH が指揮しているのではない。
 
 ---
 
