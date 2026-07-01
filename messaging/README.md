@@ -78,7 +78,7 @@ flowchart TD
 
 | Week | テーマ | 主な内容 |
 |---|---|---|
-| **11** | トピックとイベントスキーマ | System/Custom/Domain/Partner トピック、EventGrid スキーマ vs CloudEvents 1.0 |
+| **[11](notes/week11.md)** | トピックとイベントスキーマ | System/Custom/Domain/Partner トピック、EventGrid スキーマ vs CloudEvents 1.0 |
 | **12** | 配信とフィルタリング | サブスクリプション・高度フィルタ、ハンドラ種別、配信・リトライ・DLQ |
 | **13** | Namespace topics と MQTT | 名前空間トピック、MQTT(IoT)、pull 配信 |
 | **14** | セキュリティ・監視・連携 | Entra ID、Functions/Logic Apps/Webhook 連携、CloudEvents 相互運用 |
