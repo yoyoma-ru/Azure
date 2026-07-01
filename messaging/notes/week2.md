@@ -257,6 +257,20 @@ flowchart LR
 | **at-least-once**（最低1回） | 失わないが、**重複することがある** | **同じものが2回**来うる | Service Bus の **PeekLock**、Event Hubs、Event Grid（既定） |
 | **exactly-once**（ちょうど1回） | 失わず重複もしない（理想） | 仕組みが要る・制約が付く | Service Bus の重複検出 / セッション |
 
+> **重要な概念の区別：プロトコル・配信方式・API の3層（早見表）**
+> 混同しやすい3つを分ける。**プロトコル**＝ネットワーク上の通信規格／**配信方式**＝誰が動くか（push/pull/pub-sub）／**API**＝コードからの呼び方（プロトコルではない）。例：Service Bus を JMS（API）で使っても、下は AMQP（プロトコル）で受信は pull（配信方式）。
+>
+> | サービス | 主なプロトコル | 配信方式 | 補足 |
+> |---|---|---|---|
+> | **Service Bus** | **AMQP 1.0（既定）**, HTTP | **pull**（PeekLock・競合コンシューマー） | JMS は AMQP 上の API（Week 5 §4） |
+> | **Event Hubs** | **AMQP 1.0（既定）**, **Kafka**, HTTPS（送信のみ） | **pull**（offset/checkpoint で読む） | Kafka 互換（Week 9 §2） |
+> | **Event Grid（Basic）** | **HTTP** | **push**（ハンドラへ HTTP POST） | Week 11-12 |
+> | **Event Grid（名前空間）** | **HTTP ＋ MQTT** | HTTP＝**pull＋push**／MQTT＝**pub-sub** | MQTT は IoT・Week 13 |
+>
+> - **MQTT を持つのは3兄弟の中で Event Grid（名前空間）だけ**（Service Bus / Event Hubs は非対応。Azure 全体では IoT Hub も MQTT を喋る）。
+> - 配信方式で束ねると：**push**＝Event Grid Basic・名前空間 push（宛先は現状 Event Hubs のみ）／**pull**＝Service Bus・Event Hubs・Event Grid 名前空間 pull／**pub-sub**＝Event Grid MQTT。
+> - **AMQP**＝Service Bus/Event Hubs の既定プロトコル（Week 5 §4）／**Kafka**＝Event Hubs 互換（Week 9）／**HTTP**＝Event Grid とライト用途で広く／**MQTT**＝Event Grid 名前空間（IoT）。
+
 ### 3-1. Service Bus の2つの受信モード（保証の正体）
 
 ```mermaid
