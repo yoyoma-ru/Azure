@@ -89,7 +89,7 @@ flowchart TD
 |---|---|---|
 | **[15](notes/week15.md)** | 横断比較の総まとめ | 決定木、コスト、SLA、順序/スループット/レイテンシ/制約マトリクス |
 | **[16](notes/week16.md)** | 組み合わせアーキテクチャ | Event Grid→Function→Service Bus／telemetry→Event Hubs→Stream Analytics／Service Bus DLQ→Event Grid 通知 |
-| **17** | 最終プロジェクト | 3サービス連携 E2E（Bicep + Python Functions + テスト） |
+| **[17](notes/week17.md)** | 最終プロジェクト | 3サービス連携 E2E（Bicep + Python Functions + テスト） |
 
 ---
 

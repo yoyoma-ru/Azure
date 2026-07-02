@@ -1,0 +1,5 @@
+azure-servicebus>=7.12
+azure-eventhub>=5.11
+azure-eventgrid>=4.16
+azure-identity>=1.16
+azure-functions>=1.20
