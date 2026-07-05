@@ -42,14 +42,14 @@ Week 1 のハンズオンでは、Portal でリソースグループを 1 つ作
 
 ```mermaid
 flowchart TD
-    T["テナント（Microsoft Entra ID）\nスコープ: tenant"]
-    MG1["管理グループ\nスコープ: management group"]
+    T["テナント（Microsoft Entra ID）<br/>スコープ: tenant"]
+    MG1["管理グループ<br/>スコープ: management group"]
     MG2["管理グループ（入れ子も可）"]
-    SUB1["サブスクリプション\nスコープ: subscription"]
+    SUB1["サブスクリプション<br/>スコープ: subscription"]
     SUB2["サブスクリプション"]
-    RG1["リソースグループ\nスコープ: resource group"]
+    RG1["リソースグループ<br/>スコープ: resource group"]
     RG2["リソースグループ"]
-    RES["個々のリソース\n(ストレージアカウント等)"]
+    RES["個々のリソース<br/>(ストレージアカウント等)"]
 
     T --> MG1
     MG1 --> MG2
@@ -188,27 +188,86 @@ az deployment tenant create \
 
 ## 4. スコープをまたぐ「入れ子デプロイ」
 
-上位スコープのテンプレートから、**入れ子のデプロイ（nested deployment）** を使うことで、下位スコープに対して同時にリソースを作ることができる。指定の仕方はターゲットによって変わる。
+### 4-1. なぜ「入れ子」が必要か
 
-| ターゲット | 入れ子デプロイで指定するプロパティ |
-|---|---|
-| 管理グループ | `scope`（対象 MG のリソース ID） |
-| サブスクリプション | `subscriptionId` |
-| リソースグループ | `subscriptionId` + `resourceGroup` |
+§2〜3 で見た通り、**1 回のデプロイは 1 つのスコープに対して**行われる。`az deployment sub create` なら「サブスクリプションスコープ」の 1 発だ。
+
+ところが、サブスクリプションスコープでできるのは「**RG を作る**」「Policy を割り当てる」まで。**ストレージアカウントのような普通のリソースは、RG の "中" にしか作れない**（＝リソースグループスコープの仕事）。すると、こういう「またぎ」をしたくなる。
+
+> 1 回のデプロイで、**RG を新規作成し、さらにそのRGの中にストレージアカウントも作りたい**
+
+これは「サブスクスコープ（RG 作成）」と「RG スコープ（ストレージ作成）」の **2 スコープにまたがる**作業。これを 1 本のテンプレートで実現する仕組みが**入れ子デプロイ（nested deployment）**——「**テンプレートの中に、別スコープ宛ての小さいテンプレートを埋め込む**」というもの。
+
+### 4-2. 具体例：テンプレートの中にテンプレートを入れる
+
+外側をサブスクリプションスコープにして、①RG を作り、②その RG の中にストレージを作る例。
+
+```json
+{
+  "$schema": ".../subscriptionDeploymentTemplate.json#",  // 外側はサブスクスコープ
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",   // ① まずRGを作る（サブスクスコープの仕事）
+      "apiVersion": "2021-04-01",
+      "name": "rg-app",
+      "location": "japaneast"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",   // ② ここが「入れ子デプロイ」
+      "apiVersion": "2021-04-01",
+      "name": "deployStorage",
+      "resourceGroup": "rg-app",   // ★ここで「rg-app スコープ」に潜る指定
+      "dependsOn": [ "rg-app" ],   // ①のRGが出来てから実行
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": ".../deploymentTemplate.json#",   // 内側はRGスコープ用スキーマ
+          "resources": [
+            { "type": "Microsoft.Storage/storageAccounts", "name": "..." }
+            //  ↑ このストレージは rg-app の中に作られる
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+ポイントは **`Microsoft.Resources/deployments` という "デプロイそのものを表すリソース"** を、外側テンプレートの中に 1 個のリソースとして書くこと。これが「テンプレートの中に別スコープ向けの小さいテンプレートを埋め込む」＝入れ子デプロイの正体。
+
+- **外側**：サブスクリプションスコープで動き、`rg-app` を作る
+- **内側（入れ子）**：`resourceGroup: "rg-app"` と書くことで **RG スコープに切り替わり**、`rg-app` の中にストレージを作る
+
+### 4-3. 「どのスコープに潜るか」の指定方法
+
+§4-2 の内側の `Microsoft.Resources/deployments` に、次のプロパティを書くことで「潜る先のスコープ」を指定する。
+
+| 潜りたい先 | 内側に書くプロパティ | 意味 |
+|---|---|---|
+| 管理グループ | `scope`（対象 MG のリソース ID） | 「この MG を対象にデプロイして」 |
+| サブスクリプション | `subscriptionId` | 「このサブスクを対象にデプロイして」 |
+| リソースグループ | `subscriptionId` + `resourceGroup` | 「このサブスクの、この RG を対象にデプロイして」 |
+
+RG だけ 2 つ要るのは、「RG はサブスクの中にある」から——**どのサブスクの、どのRGか**まで指定しないと場所が一意に決まらないため。
 
 ```mermaid
 flowchart LR
-    TT["テナントスコープの\nテンプレート"]
-    NMG["入れ子デプロイ\nscope: 管理グループID"]
-    NSUB["入れ子デプロイ\nsubscriptionId指定"]
-    NRG["入れ子デプロイ\nsubscriptionId + resourceGroup指定"]
+    TT["テナントスコープの<br/>テンプレート（外側）"]
+    NMG["入れ子デプロイ①<br/>scope: 管理グループID<br/>→ 管理グループに潜る"]
+    NSUB["入れ子デプロイ②<br/>subscriptionId<br/>→ サブスクに潜る"]
+    NRG["入れ子デプロイ③<br/>subscriptionId + resourceGroup<br/>→ RGに潜る"]
 
     TT --> NMG
     TT --> NSUB
     TT --> NRG
 ```
 
-これにより、**1 本のテンプレートで「管理グループを作り、その配下のサブスクリプションに Policy を割り当て、さらにその中の特定のリソースグループにリソースを作る」**というマルチスコープの一括デプロイが可能になる（Week 9 の最終プロジェクトで実際に構築する）。
+このように **1 本のテナントスコープのテンプレートが、複数の入れ子デプロイを持ち、それぞれ違うスコープに潜れる**。最上位（テナント）から一気に「管理グループを作り、その配下サブスクに Policy を割り当て、さらにその中の RG にリソースを作る」——という**縦断的な一括デプロイ**が、この入れ子の積み重ねで実現できる（Week 9 の最終プロジェクトで実際に構築する）。
+
+> **初学者向け用語補足：入れ子デプロイを「工事許可の同封」でイメージする**
+> - **デプロイ**＝「この階に工事に入ります」という 1 件の工事許可。1 件につき 1 フロア分。
+> - **入れ子デプロイ**＝その工事書類の中に「**ついでに下の階の工事許可もここに同封しておきます**」と別フロア用の許可証を挟み込むこと。
+> - `scope` / `subscriptionId` / `resourceGroup`＝同封した許可証に書く「**どの階の、どの部屋か**」という宛先ラベル。
 
 ### スコープ遷移には禁止パターンがある
 
@@ -233,7 +292,7 @@ Microsoft Learn は次の制約を明記している。
 
 ```mermaid
 flowchart TD
-    ROOT["ルート管理グループ\n(Tenant root group)\nID = Entra テナント ID\n移動・削除不可"]
+    ROOT["ルート管理グループ<br/>(Tenant root group)<br/>ID = Entra テナント ID<br/>移動・削除不可"]
     MG_A["管理グループ: Platform"]
     MG_B["管理グループ: Landing Zones"]
     SUB_A["サブスクリプション: Identity"]
@@ -267,10 +326,10 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    S1["リソースグループ\naz deployment group"]
-    S2["サブスクリプション\naz deployment sub\n--location必須"]
-    S3["管理グループ\naz deployment mg\n--management-group-id"]
-    S4["テナント\naz deployment tenant\nOwner at '/' が必要"]
+    S1["リソースグループ<br/>az deployment group"]
+    S2["サブスクリプション<br/>az deployment sub<br/>--location必須"]
+    S3["管理グループ<br/>az deployment mg<br/>--management-group-id"]
+    S4["テナント<br/>az deployment tenant<br/>Owner at '/' が必要"]
 
     S4 -->|"入れ子: managementGroups"| S3
     S3 -->|"入れ子: scope"| S3
