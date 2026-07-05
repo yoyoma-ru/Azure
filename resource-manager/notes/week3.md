@@ -114,6 +114,41 @@ ARM テンプレートは、拡張子こそ `.json` だが、中身は**決ま�
 
 - `[ ... ]` で囲まれた部分は**式（expression）**として評価される（後述 §4）。`parameters('skuName')` は「skuName という parameter の値」を意味する。
 
+> **初学者向け用語補足：parameters と variables の違いを「関数の引数 vs ローカル変数」で捉える**
+> テンプレートを **1 つの関数（レシピ）** だと思うと、両者の役割はきれいに分かれる。
+>
+> | | parameters（パラメータ） | variables（変数） |
+> |---|---|---|
+> | 誰が値を決めるか | **テンプレートの外側**（デプロイする人／CI/CD） | **テンプレートの中身**（作者が固定で書く） |
+> | 関数でいうと | **引数**（呼ぶ時に渡す） | **関数内のローカル変数・定数** |
+> | デプロイのたびに変えられるか | **変えられる**（`--parameters` で渡す） | 変えられない（テンプレートを書き換えない限り固定） |
+> | 主な目的 | 環境ごと・実行ごとに**変えたい値**を外出しする | 式を**使い回して読みやすく**／命名規則を 1 箇所に集約 |
+>
+> **たとえ（料理のレシピ）**：parameters＝作る人が持ち込む材料（「何人前？」「甘口／辛口？」＝作るたびに変えられる）。variables＝レシピ内で決め打ちの下ごしらえ（「ソースは醤油2:みりん1」＝作者が固定、作る人は変えない）。
+>
+> **一緒に使う例**：
+>
+> ```json
+> "parameters": {
+>   "env": { "type": "string", "allowedValues": [ "dev", "prod" ] }   // 外から渡す
+> },
+> "variables": {
+>   "storageName": "[format('st{0}001', parameters('env'))]",          // paramを元に内部で組み立て
+>   "tags": { "env": "[parameters('env')]", "managedBy": "arm-template" }
+> }
+> ```
+>
+> ①デプロイ時に `env=prod` を**外から渡す** → ②内部で variable `storageName` が `stprod001` に**決まる**（作者が決めた命名規則 `st{env}001` に従う）→ ③作る人は `storageName` を直接いじれない（渡す口が無い）。**命名規則を守らせたいから、あえて variable に閉じ込めている**。
+>
+> ```bash
+> # env だけ外から渡せる。storageName は渡せない
+> az deployment group create -g rg-arm-learn --template-file main.json --parameters env=prod
+> ```
+>
+> **どちらを使うかの判断**：外の人に選ばせたい／環境ごとに変えたい → **parameter**（環境名・リージョン・SKU・名前・パスワード）。parameter や固定値から"導出"される／外から勝手に変えられたくない → **variable**（命名規則で組み立てた名前・共通 tags・繰り返す長い式）。
+>
+> **もう 1 つの違い（制約とチェック）**：`defaultValue`・`allowedValues`・`minLength`/`maxValue`・`metadata.description` を持てるのは **parameter だけ**。これは「**外から来る値は信用せず、入口でチェックする**」ため。variable は作者が書く内部値なのでガードは不要＝持てない。つまり **parameter＝外部インターフェース（引数）／variable＝内部実装（ローカル変数）**。
+
 ### 3-3. `resources`：本体。実際に作るリソース
 
 テンプレートの心臓部。1 リソース＝ 1 オブジェクトで、最低限 `type` / `apiVersion` / `name` が要る。
