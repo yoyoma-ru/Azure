@@ -55,7 +55,7 @@ flowchart TD
         R["REST API を直接叩く"]
     end
 
-    ARM["Azure Resource Manager\nmanagement.azure.com\n認証・認可 → 各リソースプロバイダーへ転送"]
+    ARM["Azure Resource Manager<br/>management.azure.com<br/>認証・認可 → 各リソースプロバイダーへ転送"]
 
     subgraph RP["リソースプロバイダー（実際にリソースを持つサービス）"]
         RP1["Microsoft.Storage"]
@@ -179,8 +179,8 @@ flowchart TD
         I1 --> I2 --> I3
     end
     subgraph DEC["宣言型（declarative）"]
-        D1["最終的にこうなっていてほしい：\nRG + ストレージ + VNet が存在する状態"]
-        D2["順番はARMが\n依存関係から自動で決める"]
+        D1["最終的にこうなっていてほしい：<br/>RG + ストレージ + VNet が存在する状態"]
+        D2["順番はARMが<br/>依存関係から自動で決める"]
         D1 --> D2
     end
 ```
@@ -226,10 +226,10 @@ ARM テンプレートも Bicep も**宣言型構文（declarative syntax）**�
 
 ```mermaid
 flowchart LR
-    U["あなた\n(Portal / CLI / Bicep)"]
-    ARM["Azure Resource Manager\n認証・認可・ルーティング"]
-    RP["リソースプロバイダー\n(Microsoft.Storage 等)"]
-    LOG["Activity Log\n操作の記録"]
+    U["あなた<br/>(Portal / CLI / Bicep)"]
+    ARM["Azure Resource Manager<br/>認証・認可・ルーティング"]
+    RP["リソースプロバイダー<br/>(Microsoft.Storage 等)"]
+    LOG["Activity Log<br/>操作の記録"]
 
     U -->|"REST 呼び出し"| ARM
     ARM -->|"転送"| RP
