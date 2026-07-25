@@ -1,0 +1,67 @@
+# =============================================================
+# Week 9 最終プロジェクト：GitHub Actions ワークフロー（サンプル）
+#
+# ※これは "見本" ファイル。実際に動かすには、リポジトリ直下の
+#   .github/workflows/ にコピーして使う（この場所のままでは実行されない）。
+#   本教材リポジトリの CI を勝手に起動させないため、あえて infra/ に置いている。
+#
+# 前提（Week 7/8）：
+#   - Entra アプリ（またはユーザー割り当てマネージド ID）＋フェデレーション資格情報を作成済み
+#   - その SP に、対象管理グループ/サブスクへ最小権限のロールを割り当て済み
+#   - GitHub Secrets に AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID（＝識別子。秘密ではない）
+#   - GitHub Variables などに MANAGEMENT_GROUP_ID を設定
+# =============================================================
+
+name: Deploy capstone (multi-scope Bicep)
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths: [ 'resource-manager/infra/**' ]
+  push:
+    branches: [ main ]
+    paths: [ 'resource-manager/infra/**' ]
+
+permissions:
+  id-token: write        # OIDC トークン発行に必須（Week 8）
+  contents: read
+
+jobs:
+  # ---- PR では what-if で差分プレビューだけ（Week 5/8）----
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: what-if
+        run: |
+          az deployment mg what-if \
+            --management-group-id ${{ vars.MANAGEMENT_GROUP_ID }} \
+            --location japaneast \
+            --template-file resource-manager/infra/main.bicep \
+            --parameters resource-manager/infra/main.bicepparam
+
+  # ---- main への push で本番デプロイ。environment で承認ゲート（Week 8）----
+  deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production      # required reviewers を設定すると承認待ちで止まる
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: deploy
+        run: |
+          az deployment mg create \
+            --management-group-id ${{ vars.MANAGEMENT_GROUP_ID }} \
+            --location japaneast \
+            --template-file resource-manager/infra/main.bicep \
+            --parameters resource-manager/infra/main.bicepparam
