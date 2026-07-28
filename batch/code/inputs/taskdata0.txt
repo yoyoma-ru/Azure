@@ -1,0 +1,2 @@
+Azure Batch runs large-scale parallel and high performance computing batch jobs.
+There is no cluster or job scheduler software to install manage or scale.

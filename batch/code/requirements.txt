@@ -1,0 +1,7 @@
+# Week 10 最終プロジェクト（Python / azure-batch SDK）の依存パッケージ
+#
+# 新しい BatchClient（DefaultAzureCredential で Entra 認証／Week 8）を含む azure-batch を使う。
+# 旧 BatchServiceClient + 共有キーではなく、Entra ID ベースの新 SDK に合わせている。
+azure-batch>=15.0.0b1
+azure-identity>=1.16.0
+azure-storage-blob>=12.20.0

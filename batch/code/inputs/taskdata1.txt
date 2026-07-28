@@ -1,0 +1,3 @@
+A pool is a collection of compute nodes.
+A job is a collection of tasks.
+A task runs on a node and processes its resource files.

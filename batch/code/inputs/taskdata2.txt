@@ -1,0 +1,3 @@
+Spot nodes take advantage of surplus capacity at a lower price.
+Autoscale adjusts the number of nodes based on pending tasks.
+Persist output to storage because nodes are ephemeral.
