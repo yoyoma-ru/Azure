@@ -233,6 +233,60 @@ W3 で「共通 `field`（`name`/`location`/`type`/`tags`…）で届かない�
 | `...ipRules[*]` | `ipRules` 配列の各要素 |
 | `...ipRules[*].action` | 各要素の `action` プロパティの値 |
 
+> **初学者向け用語補足：各エイリアスが「具体的にどんな値」になるか**
+>
+> 次のような `networkAcls`（ネットワーク許可リスト）を持つストレージで考える。`ipRules` は許可 IP の**配列**で、要素は `{ value: IP/範囲, action: 許可 }`（`action` は現状 `Allow` のみ）。
+>
+> ```json
+> "properties": {
+>   "networkAcls": {
+>     "defaultAction": "Deny",
+>     "ipRules": [
+>       { "value": "203.0.113.0/24", "action": "Allow" },
+>       { "value": "198.51.100.5",   "action": "Allow" }
+>     ]
+>   }
+> }
+> ```
+>
+> | エイリアス | 返る値（このデータの場合） |
+> | --- | --- |
+> | `...ipRules`（通常版） | `[ {value:"203.0.113.0/24",action:"Allow"}, {value:"198.51.100.5",action:"Allow"} ]`（**配列まるごと 1 個の値**） |
+> | `...ipRules[*]` | 各要素：`{value:"203.0.113.0/24",action:"Allow"}` と `{value:"198.51.100.5",action:"Allow"}` の**2 個の集まり** |
+> | `...ipRules[*].value` | `"203.0.113.0/24"`, `"198.51.100.5"`（各要素の value の集合） |
+> | `...ipRules[*].action` | `"Allow"`, `"Allow"`（各要素の action の集合） |
+>
+> **箱の直感**：
+> ```
+> ipRules        → 箱ごと（[要素, 要素]）……箱まるごと比較
+> ipRules[*]     → 箱を開けて中身を1個ずつ（要素, 要素）……要素ごとに検査 / count
+> ipRules[*].xxx → 中身それぞれの xxx だけ抜き出す（"Allow", "Allow"）
+> ```
+>
+> **条件で使うと（具体的な真偽トレース）**
+>
+> - **ケース1：`[*]` を素の field 条件に置く（各要素を AND）**
+>   ```json
+>   { "field": "...networkAcls.ipRules[*].action", "equals": "Allow" }
+>   ```
+>   要素1 action="Allow"→真／要素2 action="Allow"→真／AND → **全体 true**（＝「すべての要素が Allow」）。片方が `Deny` なら全体 false。この書き方は「**全要素が条件を満たすか**」を意味する。
+>
+> - **ケース2：`[*]` を count で数える**
+>   ```json
+>   { "count": { "field": "...networkAcls.ipRules[*]",
+>       "where": { "field": "...networkAcls.ipRules[*].value", "equals": "203.0.113.0/24" } },
+>     "equals": 1 }
+>   ```
+>   要素1 value 一致→数える(1)／要素2 不一致→数えない／合計 **1** → `equals 1` → **true**。
+>
+> - **ケース3：通常版で「設定の有無」**
+>   ```json
+>   { "field": "...networkAcls.ipRules[*]", "exists": "false" }
+>   ```
+>   `ipRules` が空/未設定なら真。上のデータは 2 件あるので **false**。
+>
+> まとめ：`[*]` は「配列の**箱を開けて中身を並べる**」、`.xxx` は「並べた中身から**特定プロパティだけ取り出す**」操作、と読むと値がイメージできる。
+
 ### 7-1. `[*]` を `field` 条件で使うと
 
 配列エイリアスを `field` 条件に置くと、**各要素を個別に比較**し、要素間は論理 AND で束ねられる（W3 で触れた挙動）。
