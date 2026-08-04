@@ -126,6 +126,49 @@ flowchart LR
 
 `metadata.assignPermissions: true` にすると、**割り当て時に Portal がロール割り当てを自動作成**する（そのパラメータ値が指すリソース/スコープに対して）。割り当てスコープ外に権限を与えたいときに使うが、**権限が自動で付与される**ため影響を理解して使う。
 
+> **初学者向け用語補足：`assignPermissions` を具体例で（中央 Log Analytics への診断ログ DINE）**
+>
+> この設定は **DINE/modify のマネージド ID（W4）**と **割り当てスコープ（W7）**が絡むので、例で追う。
+>
+> **前提**：`deployIfNotExists`/`modify` は「Azure が代わりにリソースを作成・変更する」効果なので、割り当てにマネージド ID が付き、`roleDefinitionIds` のロールが与えられる。ただし **Azure が自動で権限を付けるのは"割り当てスコープの中"だけ**。
+>
+> **困る場面**：こんな DINE を考える——「VM に診断設定が無ければ、ログを**中央の Log Analytics ワークスペース**へ送る設定をデプロイする」。登場スコープが 2 つにまたがる。
+> - **VM**（直す対象）＝サブスク A（割り当てスコープ）
+> - **Log Analytics ワークスペース**（ログ送り先）＝**別 RG `rg-central`**。パラメータ `logAnalytics` でその ID を割り当て時に指定
+>
+> マネージド ID は診断設定を作るため**送り先ワークスペース（rg-central）にも書き込み権限**が要るが、自動付与はサブスク A だけ。→ rg-central に権限が無く **remediation が失敗**する。手作業なら「rg-central に行って、このマネージド ID にロールを手動付与」する必要がある。
+>
+> **`assignPermissions: true` が自動化すること**：パラメータ `logAnalytics`（値＝送り先ワークスペースの ID）にこれを付けると、**割り当てを作る瞬間に、Portal が"そのパラメータ値が指すスコープ（rg-central のワークスペース）"へマネージド ID のロール割り当てを自動作成**する（`roleDefinitionIds` のロール 1 つにつき 1 つ）。
+>
+> ```json
+> "parameters": {
+>   "logAnalytics": {
+>     "type": "string",
+>     "metadata": {
+>       "displayName": "Log Analytics ワークスペース",
+>       "strongType": "Microsoft.OperationalInsights/workspaces",
+>       "assignPermissions": true
+>     }
+>   }
+> }
+> ```
+>
+> ```mermaid
+> flowchart TD
+>     A["割り当てスコープ：サブスクA"] -->|自動ロール付与| MI["マネージドID"]
+>     P["パラメータ logAnalytics<br/>= rg-central のWSを指す"] -->|assignPermissions:true で<br/>ここにも自動ロール付与| MI
+>     MI -->|書き込みOK| WS["Log Analytics（rg-central）"]
+>     WS --> OK["remediation 成功"]
+> ```
+>
+> **なぜ「影響を理解して」なのか（注意点）**
+> - **割り当てスコープの外に権限が付く**。「サブスク A に当てただけ」のつもりでも、実際は別 RG のワークスペースにマネージド ID の権限が広がる。無自覚だと想定外の権限拡大になる。
+> - ロール割り当てを作る行為なので、**割り当てる人に `User Access Administrator` か `Owner` が必要**（W1 で触れた話とつながる）。
+> - パラメータ値は**有効なリソース/スコープ**である必要（そこにロールを付けるため）。
+> - **Portal の割り当てフロー限定**の自動化。**Bicep/CLI では効かない**ので、必要なロール割り当ては自分で書く（W10 で明示的に作る）。
+>
+> ひとことで：`assignPermissions: true` ＝「このパラメータが指す**割り当てスコープ外のリソース**にも、ポリシーのマネージド ID が動けるよう、割り当て時に権限を自動で付けておいて」という指示。
+
 > **用語補足：`strongType` は"入力補助"、機能挙動は変えない**
 > `strongType` は **Portal の UX（入力体験）を良くするだけ**で、ポリシーの評価ロジックそのものは変えない。付けなくても動くが、割り当てる人が値を間違えにくくなる。`allowedValues`（候補を固定）と併用するとさらに堅い。
 
