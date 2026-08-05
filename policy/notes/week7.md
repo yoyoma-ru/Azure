@@ -214,6 +214,43 @@ W4 で「DINE/modify は remediation にマネージド ID が要る」と学ん
 - 1 つの override で**最大 50 の `policyDefinitionReferenceId`**、1 割り当てに**最大 10 の override**。
 - **使いどころ**：多数の定義を含むイニシアティブで、**複数の効果を一括で切り替える**（1 個ずつ定義を直さずに済む）。
 
+> **初学者向け用語補足：「1 override で 50・1 割り当てで 10」の意味**
+>
+> この 2 つは**別々の軸**の上限。override 1 個は「**これらのポリシーを → この 1 つの値にせよ**」という一括置換ルール（`value` は 1 つだけ）。`selectors.in` がその対象ポリシー（refId）のリスト。
+>
+> | 上限 | 軸 | 意味 |
+> | --- | --- | --- |
+> | **1 override に refId 最大 50** | 横（1 ルールの対象数） | **同じ値**を一度に最大 50 個のポリシーへ適用できる |
+> | **1 割り当てに override 最大 10** | 縦（ルールの本数） | **違う値のグループ**を最大 10 種類作れる |
+>
+> **なぜ複数要るか**：override 1 個の `value` は 1 つだけなので、「一部は無効化・一部は監査・一部は拒否」のように**違う効果に振り分けたい**なら、**効果の種類ごとに override を分ける**。
+>
+> **具体例**：200 ポリシーのイニシアティブで「50 個→disabled／30 個→audit／20 個→deny」に振り分けたい → override は **3 本**。
+> ```json
+> "overrides": [
+>   { "kind": "policyEffect", "value": "disabled",
+>     "selectors": [{ "kind": "policyDefinitionReferenceId", "in": [ "pol1", "…(最大50個)" ] }] },
+>   { "kind": "policyEffect", "value": "audit",
+>     "selectors": [{ "kind": "policyDefinitionReferenceId", "in": [ "polA", "…(最大30個)" ] }] },
+>   { "kind": "policyEffect", "value": "deny",
+>     "selectors": [{ "kind": "policyDefinitionReferenceId", "in": [ "polX", "…(最大20個)" ] }] }
+> ]
+> ```
+> ```mermaid
+> flowchart TD
+>     A["1つの割り当て（overrides 配列）"] --> O1["override① value=disabled<br/>refId 最大50個"]
+>     A --> O2["override② value=audit<br/>refId 最大30個"]
+>     A --> O3["override③ value=deny<br/>refId 最大20個"]
+>     O1 --> G1["対象50ポリシー → 無効化"]
+>     O2 --> G2["対象30ポリシー → 監査"]
+>     O3 --> G3["対象20ポリシー → 拒否"]
+> ```
+> - この例は override 3 本（上限 10 まで余裕）。効果を 11 種類に振り分けたいと 11 本目が要り**作れない**が、効果の種類は実質数種なので 10 本で足りる。
+> - 「同じ `disabled` を 60 個へ」なら 1 本に 50 個までなので、**2 本に分けて 50＋10**（同じ値の override を並べてよい）。
+> - 全体：横 50 × 縦 10 ＝ 理論上最大 500 件の refId を、最大 10 種類の値に振り分けられる。override は**書いた順に評価**。
+>
+> ひとことで：**「50 は 1 グループのメンバー上限、10 はグループ自体の個数上限」**。
+
 > **効果を変える 3 つの手段の違い**
 > - **パラメータ化した効果**（定義側 `allowedValues` で `audit/deny/disabled`、W4/W5）＝定義作者が用意した切り替え。
 > - **`overrides`**（割り当て側）＝定義を触らず、割り当てで強制的に差し替え。
