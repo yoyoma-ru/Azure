@@ -149,6 +149,40 @@ W4 で「DINE/modify は remediation にマネージド ID が要る」と学ん
 > - **割り当ての ID（assignment identity）**＝マネージド ID。**実際のテンプレート配備（書き込み）**に使われる。
 > 例：Key Vault に診断設定を配る DINE なら、呼び出し元に `diagnosticSettings/read`、割り当て ID に `diagnosticSettings/write` が要る。「読むのは作った人・書くのはポリシーの ID」。
 
+> **初学者向け用語補足：「呼び出し元（requestor / caller）」とは何か**
+>
+> Azure の操作は**すべて API（ARM への REST リクエスト）**で行われる。Portal のボタンも `az` コマンドも Bicep デプロイも、裏では「ARM に"この Key Vault を作れ"という PUT を送る」という同じ形。**呼び出し元 ＝ その"作れ/変えろ"というリクエストを送った本人**。特別な用語ではなく「今このリソースを作ろうとしている操作をした主体」のこと。
+>
+> | 呼び出し元の実体 | 例 |
+> | --- | --- |
+> | 人間（Portal/CLI） | 開発者が `az keyvault create` を実行 |
+> | CI/CD のサービスプリンシパル | GitHub Actions / Azure DevOps のパイプライン |
+> | IaC ツールの ID | Terraform / Bicep デプロイを実行する ID |
+>
+> **なぜ ID が 2 人に分かれるか**：DINE 内部で「あるか確認（読み）」と「無いものを作る（書き）」の 2 動作があり、起きるタイミングと性質が違う。
+>
+> ```mermaid
+> sequenceDiagram
+>     participant U as 呼び出し元<br/>(開発者/パイプライン)
+>     participant ARM as Azure Resource Manager
+>     participant POL as Policy エンジン
+>     participant MI as 割り当ての<br/>マネージドID
+>     U->>ARM: ① Key Vault を作れ（PUT）
+>     ARM->>POL: ② DINE を評価
+>     POL->>ARM: ③ 診断設定は存在する?（読み取り）
+>     Note over POL,ARM: 読み取りは呼び出し元(U)の権限で
+>     POL->>MI: ④ 無い → 配備して
+>     MI->>ARM: ⑤ 診断設定を作る（書き込み）
+>     Note over MI,ARM: 書き込みは割り当てのIDで
+> ```
+>
+> - **③ 存在チェック（読み取り）** … 呼び出し元の作成リクエストを処理している最中に起きるので、**呼び出し元の権限**で読む → 呼び出し元に `diagnosticSettings/read`。
+> - **⑤ 実際の配備（書き込み）** … ポリシーが代理でリソースを作る動作 → **割り当てのマネージド ID**が実行 → 割り当て ID に `diagnosticSettings/write`。
+>
+> **なぜ分けるのか（直感）**：読み取りは呼び出し元の PUT 処理の一部として同期的に起きるので呼び出し元の文脈が自然。書き込み（是正）は呼び出し元の操作と独立にポリシーが起こす副作用なので、ポリシー専用の ID で行う。1 つの ID でやると「Key Vault を作りたいだけの開発者」全員に「診断設定を書く権限」を配る羽目になる。それを避け、**書き込み権限をポリシーの ID に一元化**しているのが狙い。
+>
+> **帰結**：呼び出し元に read が無いと存在チェックが失敗しうる／割り当て ID に write が無いと配備が失敗する。**既存リソースを後から remediation task で直す場合（W8）**は作成リクエストが無いので、配備は常に割り当て ID が行う（公式：DINE のテンプレート配備は常に割り当て ID）。
+
 ---
 
 ## 7. `overrides` — 効果・バージョンの上書き
