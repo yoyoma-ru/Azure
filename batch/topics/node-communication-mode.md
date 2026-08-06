@@ -95,7 +95,49 @@ week3・week6 で出た **`enableInterNodeCommunication`（ノード間通信）
 
 ---
 
-## 7. 設定方法
+## 7. 2 つのエンドポイント：アカウント vs ノード管理
+
+簡略化で「ノードが Batch サービスへアウトバウンドする」先が**ノード管理エンドポイント**。これは Batch アカウントが持つ**2 つの公開エンドポイント**のうちの片方で、もう一方の**アカウントエンドポイント**とは"使う人"が違う。
+
+出典：[Configure public network access](https://learn.microsoft.com/en-us/azure/batch/public-network-access)
+
+| | アカウントエンドポイント | ノード管理エンドポイント |
+|---|---|---|
+| **誰が使う** | **クライアントアプリ／CLI**（人・コード側） | **プールのコンピュートノード**（VM 自身） |
+| **何のため** | ジョブ・タスク・プール・ノードの**管理操作**（データプレーン＝Batch Service REST API） | ノードが Batch の**ノード管理サービス**と通信するインフラ用 |
+| **ホスト名** | `<account>.<region>.batch.azure.com` | 別ホスト名（アカウントのプロパティ／ポータルで確認） |
+| **いつ関係する** | 常時（ジョブ/タスク投入のたび） | **簡略化（simplified）モードのときだけ** |
+
+> 公式：「The *Account endpoint* is the endpoint for Batch Service REST API (data plane)... The *Node management endpoint* is used by Batch pool nodes to access the Batch node management service. This endpoint only applicable when using simplified compute node communication.」
+
+```mermaid
+flowchart TD
+    APP["クライアントアプリ / az CLI<br/>（Python の BATCH_ACCOUNT_URL）"]
+    AE["① アカウントエンドポイント<br/>batch.azure.com<br/>（ジョブ/タスク/プール管理）"]
+    NME["② ノード管理エンドポイント<br/>（ノードのインフラ通信・simplified時）"]
+    N["コンピュートノード（VM）"]
+
+    APP -->|"ジョブ/タスクを投入"| AE
+    N -->|"simplified: アウトバウンド443"| NME
+```
+
+- **①アカウントエンドポイント**：week8 の「データプレーン」そのもの。week10 の Python で `BATCH_ACCOUNT_URL` に入れたのがこれ。**あなたのコードが叩く窓口**。
+- **②ノード管理エンドポイント**：本書 §1 でノードがアウトバウンド 443 で叩きに行く先。**ノードが使う窓口**（あなたのコードは使わない）。
+
+### publicNetworkAccess と private endpoint の対応
+
+`publicNetworkAccess=Disabled` にすると**両方**の公開エンドポイントが公開接続を拒否する。private 化するときは**サブリソースが 2 種類**あり、用途で使い分ける。
+
+| プライベートエンドポイントのサブリソース | 対応するエンドポイント | 用途 |
+|---|---|---|
+| **`batchAccount`** | アカウントエンドポイント | クライアントが private にジョブ/タスク管理 |
+| **`nodeManagement`** | ノード管理エンドポイント | ノードが private にインフラ通信（simplified） |
+
+> だから §5 の「`publicNetworkAccess` 無効＋simplified なら `nodeManagement` プライベートエンドポイント必須」は②側の話。**①（`batchAccount`）を private にするだけでは②は解決せず**、ノードが到達できず `unusable` になる。
+
+---
+
+## 8. 設定方法
 
 - プールの **`targetNodeCommunicationMode`** に指定：
   - **Classic** / **Simplified** / **Default**（Batch が選ぶ。VNet ありのプールは 2024-09-30 まではクラシック既定だった）
@@ -122,5 +164,7 @@ Bicep/JSON 例（抜粋）：
 | `BatchNodeManagement.<region>` | Batch 管理エンドポイントのサービスタグ |
 | `targetNodeCommunicationMode` | プールに希望する通信モード（Classic/Simplified/Default） |
 | `currentNodeCommunicationMode` | 実際に適用された通信モード |
+| アカウントエンドポイント | クライアント/コードが叩くデータプレーン（`<account>.<region>.batch.azure.com`）。private 化は `batchAccount` |
+| ノード管理エンドポイント | ノードがインフラ通信で叩く先（simplified 時）。private 化は `nodeManagement` |
 | nodeManagement プライベートエンドポイント | `publicNetworkAccess=Disabled` 時に簡略化を成立させるために必須 |
 | ノード間通信（別物） | `enableInterNodeCommunication`＝ノード⇄ノード（MPI）。混同注意 |
