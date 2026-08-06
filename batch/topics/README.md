@@ -8,6 +8,7 @@
 |---|---|---|
 | カスタムスクリプト | Custom Script Extension の正体・Batch では予約済みで start task を使う・Windows 検証手順・DL 失敗のトラブルシュート・出典 | [custom-script.md](custom-script.md) |
 | ノード通信モード | クラシック vs 簡略化（接続の向き・ネットワークルール 29876/29877 vs 443・簡略化のメリット・クラシック廃止・private endpoint のつまずき・ノード間通信との混同注意） | [node-communication-mode.md](node-communication-mode.md) |
+| 計算ノードの用語整理 | 計算ノード＝コンピューティングノード＝Batch 計算ノード＝compute node（訳語の揺れ）・compute node の正体・「Simplified 計算ノード通信」との違い | [compute-node-terminology.md](compute-node-terminology.md) |
 
 ## 書き方の方針
 - である調。Mermaid・表・用語補足を使う（カリキュラムと同じ）。
