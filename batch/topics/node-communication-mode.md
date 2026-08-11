@@ -1,7 +1,7 @@
 # ノード通信モード — クラシック vs 簡略化（simplified）
 
-> **機能別まとめ（topic note）** | Week 別カリキュラムとは独立した学習メモ。
-> 関連 Week：プール/ノード・通信は [notes/week3.md](../notes/week3.md)、VNet/NSG/publicNetworkAccess は [notes/week8.md](../notes/week8.md)、`unusable` 切り分けは [notes/week9.md](../notes/week9.md)、ノード間通信(MPI) は [notes/week6.md](../notes/week6.md)。
+> **機能別まとめ（topic note）** | 学習プラン（notes/）とは別に、深掘りした機能を単体でまとめた学習メモ。
+> 関連トピック：[node の用語整理](compute-node-terminology.md)、[custom-script](custom-script.md)。
 
 出典：[Use simplified compute node communication](https://learn.microsoft.com/ja-jp/azure/batch/simplified-compute-node-communication)
 
@@ -39,7 +39,7 @@ flowchart LR
 
 ## 2. 必要なネットワークルールの違い（実務の肝）
 
-VNet 内にプールを作る場合（week8）の NSG/UDR/ファイアウォールのルール：
+VNet 内にプールを作る場合の NSG/UDR/ファイアウォールのルール：
 
 | | クラシック | 簡略化 |
 |---|---|---|
@@ -70,11 +70,11 @@ VNet 内にプールを作る場合（week8）の NSG/UDR/ファイアウォー�
 
 ---
 
-## 5. つまずきポイント（week8・week9 と接続）
+## 5. つまずきポイント
 
 簡略化は「ノード→Batch のアウトバウンド」に依存するので、**その出口が塞がれると詰む**。
 
-- **`publicNetworkAccess` が Disabled** の場合、アウトバウンドを許可しても**ノード管理エンドポイントが公開接続を拒否**する。→ **`nodeManagement` プライベートエンドポイント**を VNet に作り、DNS を合わせる必要がある。怠るとノードが **`unusable`**（week9 の典型）になる。
+- **`publicNetworkAccess` が Disabled** の場合、アウトバウンドを許可しても**ノード管理エンドポイントが公開接続を拒否**する。→ **`nodeManagement` プライベートエンドポイント**を VNet に作り、DNS を合わせる必要がある。怠るとノードが **`unusable`** になる。
 - **2 つの設定は独立**：
   - **プールのパブリック IP**＝ノード自身の外向き（インターネット）通信の話。
   - **アカウントの `publicNetworkAccess`**＝Batch エンドポイント（ノード管理含む）が公開接続を受けるかの話。
@@ -85,9 +85,9 @@ VNet 内にプールを作る場合（week8）の NSG/UDR/ファイアウォー�
 
 ## 6. 混同注意：「ノード通信モード」と「ノード間通信」は別物
 
-week3・week6 で出た **`enableInterNodeCommunication`（ノード間通信）** とは**まったくの別概念**。
+**`enableInterNodeCommunication`（ノード間通信）** とは**まったくの別概念**。
 
-| | ノード通信モード（本書） | ノード間通信（week6） |
+| | ノード通信モード（本書） | ノード間通信 |
 |---|---|---|
 | 誰と誰の通信 | **ノード ⇄ Batch サービス**（インフラ管理） | **ノード ⇄ ノード**（MPI など） |
 | プロパティ | `targetNodeCommunicationMode` | `enableInterNodeCommunication` |
@@ -121,7 +121,7 @@ flowchart TD
     N -->|"simplified: アウトバウンド443"| NME
 ```
 
-- **①アカウントエンドポイント**：week8 の「データプレーン」そのもの。week10 の Python で `BATCH_ACCOUNT_URL` に入れたのがこれ。**あなたのコードが叩く窓口**。
+- **①アカウントエンドポイント**：データプレーン（Batch Service REST API）そのもの。Python/CLI で `BATCH_ACCOUNT_URL` に入れるのがこれ。**あなたのコードが叩く窓口**。
 - **②ノード管理エンドポイント**：本書 §1 でノードがアウトバウンド 443 で叩きに行く先。**ノードが使う窓口**（あなたのコードは使わない）。
 
 ### publicNetworkAccess と private endpoint の対応
@@ -141,7 +141,7 @@ flowchart TD
 
 - プールの **`targetNodeCommunicationMode`** に指定：
   - **Classic** / **Simplified** / **Default**（Batch が選ぶ。VNet ありのプールは 2024-09-30 まではクラシック既定だった）
-- 既存プールの切り替えは、プロパティ変更後に**いったん 0 台へ縮小 → 再スケール**（week3 のライフタイム操作）。
+- 既存プールの切り替えは、プロパティ変更後に**いったん 0 台へ縮小 → 再スケール**。
 - 実際に効いたモードは **`currentNodeCommunicationMode`** で確認（Get/List Pool・ポータル）。
 - **Cloud Service Configuration プールは非対応**（常にクラシック・非推奨）→ **Virtual Machine Configuration** を使う。
 

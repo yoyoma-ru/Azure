@@ -1,7 +1,7 @@
 # 計算ノード＝コンピューティングノード＝compute node（用語の揺れ整理）
 
-> **機能別まとめ（topic note）** | Week 別カリキュラムとは独立した学習メモ。
-> 関連 Week：5 階層オブジェクトモデルは [notes/week2.md](../notes/week2.md)、プール/ノードの詳細は [notes/week3.md](../notes/week3.md)。関連トピック：[node-communication-mode.md](node-communication-mode.md)。
+> **機能別まとめ（topic note）** | 学習プラン（notes/）とは別に、深掘りした機能を単体でまとめた学習メモ。
+> 関連トピック：[node-communication-mode.md](node-communication-mode.md)。
 
 ---
 
@@ -29,7 +29,7 @@ Microsoft の日本語ドキュメントは、英語の **"compute node"** を�
 
 ## 2. compute node（計算ノード）とは何か
 
-**プール内の 1 台の仮想マシン（VM）**。タスクが実際に走る場所（week2・week3）。
+**プール内の 1 台の仮想マシン（VM）**。タスクが実際に走る場所。
 
 公式定義：
 > a *compute node* (or *node*) is a virtual machine that processes a portion of your application's workload.
@@ -48,9 +48,9 @@ flowchart TD
     N1 --> TASK
 ```
 
-- VM サイズが、そのノードの **CPU コア数・メモリ・ローカルディスク**を決める（week3）。
-- **使い捨て**：プールから外れると中身は消える（week2）。だから入出力は Storage 経由（week7）。
-- 状態（Idle/Running/Unusable など）を持つ（week3・week9）。
+- VM サイズが、そのノードの **CPU コア数・メモリ・ローカルディスク**を決める。
+- **使い捨て**：プールから外れると中身は消える。だから入出力は Storage 経由。
+- 状態（Idle/Running/Unusable など）を持つ。
 
 ---
 
