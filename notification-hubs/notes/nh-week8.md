@@ -107,6 +107,12 @@ flowchart LR
 
 > **なぜ**：アプリは逆コンパイルされうる（W4 §4）。Listen 鍵ですら埋め込めば抜かれ、任意タグ登録に悪用されうる。起動時にバックエンド経由で**短命な SAS トークン**を渡す方式が安全。
 
+> **用語補足：逆コンパイル（decompile）とは**
+> 配布されているアプリ（機械語/中間コードにコンパイル済み）を**逆向きに変換して、人間が読めるソースコードに近い形へ戻す**こと。「コンパイル（ソース→実行形式）」の逆。
+> - アプリはユーザーの端末に落ちる＝**攻撃者の手元にファイルがある**。ツール（Android の `jadx`/`apktool`、iOS の逆アセンブラ等）にかければ中身を覗け、**埋め込んだ鍵・API キーは"隠したつもり"でも抜ける**。さらに動作を書き換えて再パッケージ（改ざん）もできる＝W4 §4 の「改造アプリで `user_Alice` になりすまし登録」。
+> - **難読化（obfuscation）**（変数名を `a,b,c` にする等）は解析を**遅らせるだけで防げはしない**。
+> - 結論：「アプリの中に置いたものはいつか読まれる/書き換えられる」前提で設計する。根本対策は**そもそも秘密をアプリに置かない**——重い鍵（Full/Manage）はバックエンド、端末は最小権限（Listen）＋短命トークン。これが本節の設計思想。
+
 ### 4-3. タグを厳密に管理したいなら「バックエンド登録」（W4 §4 回収）
 
 公式："The key with Listen access allows a client app to register for **any tag**. If your app must restrict registrations to specific tags to specific clients (for example, when tags represent user IDs), **your app backend must perform the registrations**."（Listen 鍵は任意タグ登録を許す。特定タグを特定クライアントに限定したいなら、バックエンドが登録を行え。）
