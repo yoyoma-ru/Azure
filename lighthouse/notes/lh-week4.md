@@ -146,7 +146,7 @@ flowchart LR
       R[Reader を常時保持<br/>＝見るだけは即座に可能]
     end
     subgraph Elig[eligibleAuthorizations（必要時）]
-      C[Contributor は"資格"だけ保持] -->|作業時に昇格要求| Act[MFA＋承認＋最大時間<br/>で一時的にContributor]
+      C[Contributor は「資格」だけ保持] -->|作業時に昇格要求| Act[MFA＋承認＋最大時間<br/>で一時的にContributor]
       Act -->|時間切れ| Back[自動で権限が消える]
     end
 ```

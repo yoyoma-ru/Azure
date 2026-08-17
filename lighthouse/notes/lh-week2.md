@@ -43,7 +43,7 @@ W1 では委任を「器（My customers / Service providers の 2 画面）」�
 flowchart TD
     subgraph Cust[顧客テナントの中に作られる]
       RD[Registration Definition<br/>登録定義＝オファーの設計図<br/>「どのプロバイダーテナントの・誰に・どのロールを」]
-      RA[Registration Assignment<br/>登録割り当て＝適用<br/>「その定義を"どのスコープ"に効かせるか」]
+      RA[Registration Assignment<br/>登録割り当て＝適用<br/>「その定義を『どのスコープ』に効かせるか」]
       RA -->|必ず1つの定義を参照| RD
     end
     RA -.->|効かせる先| Scope[サブスクリプション<br/>または リソースグループ]

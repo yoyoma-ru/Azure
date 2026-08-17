@@ -99,10 +99,10 @@ sequenceDiagram
 > ```mermaid
 > flowchart LR
 >     subgraph P[プロバイダー側]
->       Design[テンプレートを"作る"<br/>設計・ID収集・authorizations を決める]
+>       Design[テンプレートを「作る」<br/>設計・ID収集・authorizations を決める]
 >     end
 >     subgraph C[顧客側（Owner）]
->       Deploy[テンプレートを"デプロイする"<br/>★2リソースが実際に生成される]
+>       Deploy[テンプレートを「デプロイする」<br/>★2リソースが実際に生成される]
 >     end
 >     Design -->|渡す| Deploy
 > ```
