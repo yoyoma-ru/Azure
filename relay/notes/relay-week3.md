@@ -173,14 +173,17 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    subgraph Cloud[Azure Relay サービス（クラウド）]
+    subgraph Cloud[Azure Relay クラウド]
       G[ランデブーポイント]
     end
     L["リスナー（社内・NAT/FW内側）"] -->|①listen：外向き常設| G
-    L -->|④accept：外向き2本目| G
     S["センダー（外側／これもNAT内側でも可）"] -->|②connect：外向き| G
+    G -.->|③accept通知：新ソケットではなく①を流れる通知| L
+    L -->|④accept：外向き2本目| G
     G -. ⑤結合して素通し中継 .- G
 ```
+
+図中で**実線の 3 本（①listen・②connect・④accept）だけが新しく張られる WebSocket** で、いずれも「内側 → 外側」の外向き。**③（accept 通知）は破線**で示したとおり**新しいソケットではなく、①で張ったコントロールチャネルを逆向きに流れる"通知"メッセージ**である（→ §4）。だから「3 本」には数えず、番号は **①②④** と飛ぶ。⑤はその 2 本がサービス内部で結合されること。
 
 | 本数 | 誰が張るか | 向き | 役目 |
 | --- | --- | --- | --- |
