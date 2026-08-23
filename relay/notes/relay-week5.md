@@ -50,6 +50,14 @@ WebSocket モードとの根本的な違いはこれだけ：
 | 宛先 URL | `wss://<ns>/$hc/<path>` | `https://<ns>/<path>`（**`$hc` 無し**） |
 | 用途 | ストリーミング・独自プロトコル・常時接続 | REST 呼び出し・Webhook 受け・単発の要求応答 |
 
+> **初学者向け用語補足：Webhook（ウェブフック）とは**
+> あるイベントが起きたとき、サービスが**あらかじめ登録しておいた URL へ自動で HTTP リクエスト（多くは POST）を送ってくる**仕組み。「**逆向きの API**」とも呼ばれる。
+> - 普通の API：**自分から**「もう起きた？」と繰り返し問い合わせる（ポーリング）。
+> - Webhook：**相手から**「起きたよ！」と登録 URL に通知が飛んでくる。待つだけでよい。
+>
+> 例：GitHub は誰かが push すると登録 URL へ POST を送る／決済サービスは支払い成功時に POST を送る。この**飛んでくる通知を受け取る側**が「Webhook 受け」。
+> **なぜ Relay HTTP モードと相性がよいか**：Webhook を受けるには「外部から到達できる公開 HTTPS URL」が要るが、社内サービスは FW の内側で公開 URL を持てない。Relay HTTP モードは `https://<名前空間>/<path>` という**公開 URL を提供して社内リスナーへ転送**するので、**ポートを開けずに Webhook を受け取れる**。
+
 ---
 
 ## 2. 「有効化」の実際：専用フラグは無い。リスナーが `request` を扱えば通る
@@ -95,6 +103,27 @@ https.get({
 }, (res) => { /* res.statusCode, res.on('data', …) で応答を読む */ });
 ```
 
+> **初学者向けコードの読み方：まず JavaScript の基本要素（①②共通）**
+> | 記法 | 意味 |
+> | --- | --- |
+> | `require('...')` | 外部ライブラリ（モジュール）を読み込む（＝import） |
+> | `const` / `var` | 定数 / 変数の宣言 |
+> | `{ key: value }` | **オブジェクトリテラル**（キー:値の集まり。設定をまとめて渡す） |
+> | `(引数) => { ... }` | **アロー関数**（無名の関数。イベント時に呼ばれる「コールバック」として渡す） |
+> | `'a' + b` | 文字列の連結 |
+> | `obj.method()` | オブジェクトのメソッド（関数）呼び出し |
+
+> **逐行解説：① センダー（HTTP クライアント＝リクエストを送る側）**
+> - `const https = require('hyco-https');`：Relay 対応の HTTPS ライブラリを読み込み、`https` という名前で使う。
+> - `https.get( {設定}, (res)=>{...} )`：HTTP GET を送るメソッド。第 1 引数＝リクエストの設定オブジェクト、第 2 引数＝応答が返ったら呼ばれるコールバック。
+> - `hostname: ns`：宛先ホスト（`ns`＝名前空間の FQDN）。
+> - `path: '/' + path`：URL のパス。`"/"` と変数 `path` を連結して `"/inventory"`（`$hc` 無し）。
+> - `port: 443`：HTTPS のポート。
+> - `headers: { 'ServiceBusAuthorization': ... }`：HTTP ヘッダをまとめたオブジェクト。認可ヘッダに SAS トークンを載せる。
+> - `https.createRelayToken(https.createRelayHttpsUri(ns, path), keyrule, key)`：**入れ子の関数呼び出し**。内側 `createRelayHttpsUri(ns, path)` が先に実行されて署名対象 URI を作り、その結果を外側 `createRelayToken(uri, keyrule, key)` が受け取って鍵で署名する。
+> - `(res) => { ... }`：応答オブジェクト `res` を受け取るコールバック。`res.statusCode`＝状態コード、`res.on('data', …)`＝本文が届くたびに呼ばれるイベント。
+> - **要するに**：`https://<名前空間>/inventory` へ、SAS トークンをヘッダに載せて GET を送り、応答を読む「HTTP クライアント」。
+
 > **用語補足：`sb-hc-token` はクエリに載せてもよいが…**
 > W3 で見たとおり Relay はクエリの `sb-hc-token` を受け付けるが、**URL にトークンを載せるとログや履歴に残りやすい**（本教材冒頭の安全方針にも通じる）。HTTP モードでは **`ServiceBusAuthorization` ヘッダに入れるのが定石**。ヘッダなら URL に露出しない。
 
@@ -116,6 +145,19 @@ var server = https.createRelayedServer(
   });
 server.listen();
 ```
+
+> **逐行解説：② リスナー（HTTP サーバ＝リクエストを受ける側）**（JS 基本要素の表は §3 参照）
+> - `const https = require('hyco-https');`：ライブラリ読み込み。
+> - `var uri = https.createRelayListenUri(ns, path);`：listen 用の URL（`wss://…/$hc/inventory?…action=listen`）を組み立てて `uri` に保存。
+> - `https.createRelayedServer( {設定}, (req,res)=>{...} )`：リレー経由の HTTP サーバを作るメソッド。第 1 引数＝設定、第 2 引数＝リクエストごとに呼ばれるハンドラ。
+> - `{ server: uri, token: () => https.createRelayToken(uri, keyrule, key) }`：設定オブジェクト。`server`＝どの listen URL で待ち受けるか、`token: () => ...`＝**トークンを返す関数**（関数で渡すので期限切れ時に作り直せる）。
+> - `(req, res) => { ... }`：リクエストが来るたび呼ばれるハンドラ。`req`＝要求（`.method`＝GET/POST、`.url`＝パス）、`res`＝応答。
+> - `console.log('request accepted: ' + req.method + ' on ' + req.url);`：受けたメソッドとパスをコンソールに出力。
+> - `res.setHeader('Content-Type', 'text/html');`：応答ヘッダで「本文は HTML」と宣言。
+> - `res.end('<html>…</html>');`：応答本文を書いて完了。
+> - `server.listen();`：待ち受け開始（＝W3 の listen＝コントロールチャネルを Relay に張る）。
+> - **要するに**：Relay に**HTTP サーバとして待ち受けを登録**し、リクエストが来るたび `(req, res)` ハンドラで内容をログ出力して HTML を返す。標準 Node の `http.createServer((req,res)=>…)` とほぼ同じで、違いは `createServer` の代わりに `createRelayedServer`（待ち受け先が自分のポートでなく Relay）だけ。
+> - **①と②の対応**：センダー①の GET → Relay が中継 → リスナー②の `(req,res)` ハンドラが呼ばれ HTML を返す → 応答がセンダー①の `res` に届く。
 
 内部では、W3 のコントロールチャネル越しに **`request` メッセージ**（JSON ヘッダ＋バイナリのボディフレーム）が届き、リスナーが返す **`response`** がセンダーへ中継される。SDK がこの JSON ↔ `(req, res)` 変換を隠しているので、アプリは HTTP サーバを書くだけでよい。
 
