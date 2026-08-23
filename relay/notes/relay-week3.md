@@ -151,7 +151,7 @@ sequenceDiagram
     S->>Svc: ②connect（Sendトークン）
     Svc->>L: ③accept通知（address＝ランデブーURL・30秒・1回きり）
     L->>Svc: ④addressへ2本目の外向きWebSocket（action=accept）
-    Note over L,Svc,S: ⑤ センダーのconnectソケットと結合＝ランデブー成立
+    Note over L,S: ⑤ センダーのconnectソケットと結合＝ランデブー成立
     S->>Svc: データ →
     Svc->>L: → 素通し中継
     L->>Svc: ← 応答
