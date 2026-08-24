@@ -1,0 +1,103 @@
+# Azure DevOps 学習 W10：マルチステージ CI/CD パイプライン
+#
+# build+test → deploy(staging) → deploy(production, 承認付き) を1本で表現する。
+# リポジトリ直下（またはパイプライン作成時に yml-path 指定）で使う想定。
+# デプロイ step は環境非依存に echo で表現。実 Azure へは AzureWebApp@1 等 +
+# Service Connection（workload identity federation）に置き換える。
+#
+# 対応する週:
+#   trigger              -> W4 (CI トリガー)
+#   variables/group      -> W5 (Variable Group)
+#   stage/job/step/pool  -> W4 (構造・agent)
+#   pytest+PublishTest   -> W8 (自動テスト統合)
+#   PublishBuildArtifacts/download -> W4-W5 (artifact 受け渡し)
+#   deployment/environment/runOnce -> W5 (deployment job・環境・戦略)
+#   production の承認     -> W5 (Approvals and checks は environment 側に設定)
+#   condition            -> W6 (条件)
+
+trigger:
+  - main
+
+variables:
+  - group: demo-vars        # APP_VERSION 等。Library で作成しパイプラインに認可する
+  - name: pythonVersion
+    value: '3.12'
+
+stages:
+  # ---- W4: CI（build + test）----
+  - stage: BuildTest
+    displayName: Build and Test
+    jobs:
+      - job: BuildTest
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+            displayName: Python を用意
+          - script: |
+              cd code
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+            displayName: 依存インストール
+          - script: |
+              cd code
+              pytest --junitxml=test-results.xml
+            displayName: 単体テスト（W8）
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'code/test-results.xml'
+            displayName: テスト結果を発行（W8）
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: 'code'
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+            displayName: 成果物を固める
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: drop
+            displayName: artifact 発行（W4）
+
+  # ---- W5: CD（staging）----
+  - stage: DeployStaging
+    displayName: Deploy to Staging
+    dependsOn: BuildTest
+    condition: succeeded()
+    jobs:
+      - deployment: DeployStaging
+        pool:
+          vmImage: ubuntu-latest
+        environment: staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - script: echo "Deploy app.zip to STAGING (APP_VERSION=$(APP_VERSION))"
+                  displayName: staging へデプロイ（echo）
+
+  # ---- W5: CD（production, 承認付き）----
+  - stage: DeployProd
+    displayName: Deploy to Production
+    dependsOn: DeployStaging
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProd
+        pool:
+          vmImage: ubuntu-latest
+        environment: production   # この environment に Approvals を設定しておく（W5）
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - script: echo "Deploy app.zip to PRODUCTION (APP_VERSION=$(APP_VERSION))"
+                  displayName: production へデプロイ（echo）
